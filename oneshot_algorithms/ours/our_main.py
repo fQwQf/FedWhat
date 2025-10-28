@@ -1087,3 +1087,121 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
         method_results[method_name].append(ens_acc)
 
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
+
+def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwargs):
+    logger.info('OneshotOursV10 with uncertainty weighting')
+    
+    # 1. --- 读取总开关 ---
+    v10_cfg = config.get('v10_config', {})
+    use_uncertainty_weighting = v10_cfg.get('use_uncertainty_weighting', False)
+    if not use_uncertainty_weighting:
+        logger.warning("Running V10 but 'use_uncertainty_weighting' is false. This will run like V7.")
+
+
+    # 2. --- 标准初始化 ---
+    global_model = get_train_models(
+        model_name=config['server']['model_name'],
+        num_classes=config['dataset']['num_classes'],
+        mode='our'
+    )
+
+    feature_dim = global_model.learnable_proto.shape[1]
+    num_classes = config['dataset']['num_classes']
+    etf_anchors = generate_etf_anchors(num_classes, feature_dim, device)
+    
+    method_results = defaultdict(list)
+    save_path, local_model_dir = prepare_checkpoint_dir(config)
+    if not os.path.exists(save_path + "/config.yaml"):
+        save_yaml_config(save_path + "/config.yaml", config) 
+    
+    local_models = [copy.deepcopy(global_model) for _ in range(config['client']['num_clients'])]
+    
+    local_data_size = [len(client_idx_map[c]) for c in range(config['client']['num_clients'])]
+    if config['server']['aggregated_by_datasize']:
+        weights = [i/sum(local_data_size) for i in local_data_size]
+    else:
+        weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
+    
+    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+
+    clients_sample_per_class = []
+
+    # --- 3. CRITICAL: 为每个客户端模型“植入”独立的、可学习的sigma参数 ---
+    for model in local_models:
+        model.log_sigma_sq_local = torch.nn.Parameter(torch.tensor(0.0, device=device))
+        model.log_sigma_sq_align = torch.nn.Parameter(torch.tensor(0.0, device=device))
+    logger.info("Injected learnable uncertainty parameters into each client model.")
+    # -----------------------------------------------------------------------
+
+    total_rounds = config['server']['num_rounds']
+    
+    for cr in trange(total_rounds):
+        logger.info(f"Round {cr} starts--------|")
+        local_protos = []
+        
+        for c in range(config['client']['num_clients']):
+            logger.info(f"Client {c} Starts Local Trainning--------|")
+            client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+
+            if cr == 0:
+                clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
+
+
+            # 4. --- 调用统一的本地训练函数，激活V10模式 ---
+            # 请注意，我们不再需要传递任何lambda值
+            local_model_c = ours_local_training(
+                model=copy.deepcopy(local_models[c]),
+                training_data=client_dataloader,
+                test_dataloader=test_loader,
+                start_epoch=cr * config['server']['local_epochs'],
+                local_epochs=config['server']['local_epochs'],
+                optim_name=config['server']['optimizer'],
+                lr=config['server']['lr'],
+                momentum=config['server']['momentum'],
+                loss_name=config['server']['loss_name'],
+                device=device,
+                num_classes=config['dataset']['num_classes'],
+                sample_per_class=clients_sample_per_class[c],
+                aug_transformer=aug_transformer,
+                client_model_dir=local_model_dir + f"/client_{c}",
+                total_rounds=total_rounds,
+                use_drcl=True, # 依然需要开启，以计算align_loss
+                fixed_anchors=etf_anchors,
+                use_uncertainty_weighting=True # 激活V10的终极开关
+            )
+            
+            local_models[c] = local_model_c
+            logger.info(f"Client {c} Finish Local Training--------|")
+
+            local_protos.append(local_model_c.get_proto().detach())
+            logger.info(f"Client {c} Collecting Local Prototypes--------|")
+            
+            # 在日志中打印学到的sigma值，以供分析
+            learned_sigma_local = torch.exp(local_model_c.log_sigma_sq_local).item()**0.5
+            learned_sigma_align = torch.exp(local_model_c.log_sigma_sq_align).item()**0.5
+            effective_lambda = (learned_sigma_local**2) / (learned_sigma_align**2)
+            logger.info(f"Client {c} Learned Sigmas -> L_local: {learned_sigma_local:.4f}, L_align: {learned_sigma_align:.4f}. Effective Lambda: {effective_lambda:.4f}")
+
+            local_protos.append(local_model_c.get_proto().detach())
+
+        logger.info(f"Round {cr} Finish--------|")
+        model_var_m, model_var_s = compute_local_model_variance(local_models)
+        logger.info(f"Model variance: mean: {model_var_m}, sum: {model_var_s}")
+
+        global_proto = aggregate_local_protos(local_protos)
+
+        method_name = 'OursV10+SimpleFeatureServer'
+        ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
+        global_proto = aggregate_local_protos(local_protos)
+        logger.info("V10 Training | Using Simple Feature-level Server.")
+        ens_acc = eval_with_proto(ensemble_model, test_loader, device, global_proto)
+
+
+        logger.info(f"The test accuracy of {method_name}: {ens_acc}")
+
+
+        method_results[method_name].append(ens_acc)
+
+        save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
+
+

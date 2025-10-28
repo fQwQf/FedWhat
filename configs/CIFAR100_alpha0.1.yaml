@@ -17,7 +17,7 @@ dataset:
 distribution:
   type: "dirichlet" # choice: [iid, noniid, dirichlet]
   label_num_per_client: 2 # non-iid parameter
-  alpha: 0.05 # dirichlet distribution parameter
+  alpha: 0.1 # dirichlet distribution parameter
 
 client:
   num_clients: 5
@@ -91,6 +91,3 @@ v9_config:
   server_lr: 0.001
   server_epochs: 20
   gamma_etf_reg: 0.1
-
-v10_config:
-  use_uncertainty_weighting: true
