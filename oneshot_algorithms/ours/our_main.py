@@ -1089,7 +1089,7 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
 def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwargs):
-    logger.info('OneshotOursV10 with uncertainty weighting')
+    logger.info('OneshotOursV10 with uncertainty weighting, Pre-heated with V9 Adaptive Lambda')
     
     # 1. --- 读取总开关 ---
     v10_cfg = config.get('v10_config', {})
@@ -1126,12 +1126,41 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
 
     clients_sample_per_class = []
 
-    # --- 3. CRITICAL: 为每个客户端模型“植入”独立的、可学习的sigma参数 ---
-    for model in local_models:
-        model.log_sigma_sq_local = torch.nn.Parameter(torch.tensor(0.0, device=device))
-        model.log_sigma_sq_align = torch.nn.Parameter(torch.tensor(0.0, device=device))
-    logger.info("Injected learnable uncertainty parameters into each client model.")
-    # -----------------------------------------------------------------------
+    # Pre-heating Initialization Logic ---
+    logger.info("--- Pre-heating V10 models with V9's adaptive lambda strategy ---")
+    for c in range(config['client']['num_clients']):
+        # Get the client's data loader to calculate its data entropy
+        client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+        
+        # Use V9's method to calculate the optimal starting lambda.
+        # It's important that your config file has the v9_config section for this to work best.
+        v9_cfg = config.get('v9_config', {})
+        initial_lambda = calculate_adaptive_lambda(
+            client_dataloader,
+            config['dataset']['num_classes'],
+            v9_cfg.get('lambda_min', 0.1),
+            v9_cfg.get('lambda_max', 15.0), # Default max from the successful V9 run
+            device
+        )
+        logger.info(f"Client {c}: Calculated initial lambda = {initial_lambda:.4f}")
+        
+        # Convert this initial lambda into the starting value for the learnable parameter.
+        # We set initial Effective Lambda = adaptive_lambda by setting:
+        #   log_sigma_sq_local = log(adaptive_lambda)
+        #   log_sigma_sq_align = 0.0
+        initial_log_lambda = torch.tensor(initial_lambda, device=device).log()
+        
+        # "Implant" the learnable parameters into each client model with these calculated values
+        local_models[c].log_sigma_sq_local = torch.nn.Parameter(initial_log_lambda)
+        local_models[c].log_sigma_sq_align = torch.nn.Parameter(torch.tensor(0.0, device=device))
+        
+    logger.info("--- V10 model pre-heating complete. Starting training. ---")
+
+    sigma_lr_val  = v10_cfg.get('sigma_lr', 0)
+
+    if sigma_lr_val <= 0:
+        logger.warning("Sigma learning rate is not positive. Setting to default 0.005")
+        sigma_lr_val = 0.005
 
     total_rounds = config['server']['num_rounds']
     
@@ -1167,7 +1196,8 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
                 total_rounds=total_rounds,
                 use_drcl=True, # 依然需要开启，以计算align_loss
                 fixed_anchors=etf_anchors,
-                use_uncertainty_weighting=True # 激活V10的终极开关
+                use_uncertainty_weighting=True, # 激活V10的终极开关
+                sigma_lr=sigma_lr_val,
             )
             
             local_models[c] = local_model_c
@@ -1182,13 +1212,9 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
             effective_lambda = (learned_sigma_local**2) / (learned_sigma_align**2)
             logger.info(f"Client {c} Learned Sigmas -> L_local: {learned_sigma_local:.4f}, L_align: {learned_sigma_align:.4f}. Effective Lambda: {effective_lambda:.4f}")
 
-            local_protos.append(local_model_c.get_proto().detach())
-
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
         logger.info(f"Model variance: mean: {model_var_m}, sum: {model_var_s}")
-
-        global_proto = aggregate_local_protos(local_protos)
 
         method_name = 'OursV10+SimpleFeatureServer'
         ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)

@@ -5,11 +5,12 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None):
     model.train()
     model.to(device)
 
-    sigma_lr = 0.01 * lr # sigma 的学习率设为基础学习率的 0.01 倍
+    if sigma_lr is None:
+        sigma_lr = 0.05 * lr # sigma 的学习率设为基础学习率的 0.05 倍
 
     if use_uncertainty_weighting:
         # For V10, we create a special optimizer with two parameter groups.
@@ -116,7 +117,13 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                 # 正则化项，防止sigma无限增大
                 loss_reg = 0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align))
                 
-                loss = loss_local_weighted + loss_align_weighted + loss_reg
+                unscaled_loss = loss_local_weighted + loss_align_weighted + loss_reg
+
+                # 以上实际上会造成loss被缩放，相当于变相地改变了lr，因此我们需要一个额外的缩放因子来稳定训练
+                # 使用 .detach() 来确保这个缩放操作不影响 sigma 本身的梯度计算
+
+                rescaling_factor = (2.0 * sigma_sq_local).detach()
+                loss = unscaled_loss * rescaling_factor
                 
             elif use_drcl: # 兼容 V7, V8, V9
                 # 固定的或自适应的lambda + 全局退火

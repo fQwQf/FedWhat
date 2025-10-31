@@ -1,23 +1,23 @@
-exp_name: "CIFAR10_alpha0.05"
+exp_name: "Tiny_alpha0.1"
 dataset:
-  data_name: "CIFAR10" # choice: [CIFAR10, CIFAR100, MNIST, FMNIST]
-  # root_path: "/data0/wxy_data/datasets/"
-  root_path: 'H:/codes/dataset'
-  train_batch_size: 512
+  data_name: "Tiny-ImageNet" # choice: [CIFAR10, CIFAR100, MNIST, FMNIST, Tiny-ImageNet]
+  root_path: "~/datasets/"
+  # root_path: 'H:/codes/dataset'
+  train_batch_size: 256
   test_batch_size: 256
   channels: 3
-  num_classes: 10
-  image_size: 32 # [CIFAR: 32, MNIST: 28]
+  num_classes: 200
+  image_size: 64 # [CIFAR: 32, MNIST: 28]
 
-  # aux_data_name: "CIFAR10"
-  # aux_root_path: "/data0/wxy_data/datasets/"
+  aux_data_name: "Tiny-ImageNet"
+  aux_root_path: "~/datasets/"
   # aux_root_path: "H:/codes/dataset"
-  # aux_split: 'test'
+  aux_split: 'test'
 
 distribution:
   type: "dirichlet" # choice: [iid, noniid, dirichlet]
   label_num_per_client: 2 # non-iid parameter
-  alpha: 0.05 # dirichlet distribution parameter
+  alpha: 0.1 # dirichlet distribution parameter
 
 client:
   num_clients: 5
@@ -26,12 +26,12 @@ server:
   num_rounds: 10
   frac_clients: 1.0
   lr: 0.05
-  local_epochs: 5
+  local_epochs: 20
   optimizer: "sgd" # choice: [sgd, adam]
   momentum: 0.9
   weight_decay: 0.0001
   loss_name: "ce" # choice: [ce, mse, nll]
-  model_name: "resnet18" # choice: [resnet18, mobilenetv2]
+  model_name: "resnet18"
   aggregated_by_datasize: True
   lr_decay_per_round: 0.998
 
@@ -80,12 +80,12 @@ resume: True
 resume_best: False
 seed: 1
 
-lambda_align_initial: 5.0
+lambda_align_initial: 20.0
 
 v9_config:
   use_adaptive_lambda: true
   lambda_min: 0.1
-  lambda_max: 10.0
+  lambda_max: 20.0
 
   use_server_optimization: false
   server_lr: 0.001
@@ -94,4 +94,4 @@ v9_config:
 
 v10_config:
   use_uncertainty_weighting: true
-  sigma_lr: 0.0001
+  sigma_lr: 0.005
