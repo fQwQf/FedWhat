@@ -448,16 +448,13 @@ def OneshotOurs(trainset, test_loader, client_idx_map, config, device, server_st
             
             local_models[c] = local_model_c
             
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             # collecting the local prototypes
             # local_proto_c = collect_protos(copy.deepcopy(local_model_c), client_dataloader, device)
             # local_proto_c = local_model_c.get_proto(clients_sample_per_class[c]).detach()
             local_proto_c = local_model_c.get_proto().detach()
 
-
             local_protos.append(local_proto_c)
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
             # visualize_pic(local_model_c.encoder, vis_data, target_layers=[local_model_c.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
                 
@@ -587,11 +584,9 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
             # --------------------------
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_proto_c = local_model_c.get_proto().detach()
             local_protos.append(local_proto_c)
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
@@ -689,11 +684,9 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
             )
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_proto_c = local_model_c.get_proto().detach()
             local_protos.append(local_proto_c)
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
@@ -797,11 +790,9 @@ def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_
             )
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_proto_c = local_model_c.get_proto().detach()
             local_protos.append(local_proto_c)
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
@@ -910,7 +901,6 @@ def OneshotOursV8(trainset, test_loader, client_idx_map, config, device):
             )
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_protos.append(local_model_c.get_proto().detach())
 
@@ -1033,10 +1023,8 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
             )
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_protos.append(local_model_c.get_proto().detach())
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
@@ -1196,15 +1184,13 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
                 total_rounds=total_rounds,
                 use_drcl=True, # 依然需要开启，以计算align_loss
                 fixed_anchors=etf_anchors,
-                use_uncertainty_weighting=True, # 激活V10的终极开关
+                use_uncertainty_weighting=True, # 激活V10
                 sigma_lr=sigma_lr_val,
             )
             
             local_models[c] = local_model_c
-            logger.info(f"Client {c} Finish Local Training--------|")
 
             local_protos.append(local_model_c.get_proto().detach())
-            logger.info(f"Client {c} Collecting Local Prototypes--------|")
             
             # 在日志中打印学到的sigma值，以供分析
             learned_sigma_local = torch.exp(local_model_c.log_sigma_sq_local).item()**0.5
@@ -1222,12 +1208,147 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
         logger.info("V10 Training | Using Simple Feature-level Server.")
         ens_acc = eval_with_proto(ensemble_model, test_loader, device, global_proto)
 
-
         logger.info(f"The test accuracy of {method_name}: {ens_acc}")
-
 
         method_results[method_name].append(ens_acc)
 
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
+
+def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,annealing_strategy='none' , **kwargs):
+    logger.info('OneshotOursV11: Consensus-Driven Dynamic Annealing with Uncertainty Weighting')
+    
+    # --- 标准初始化代码 ---
+    # ... (读取配置, 初始化模型, ETF锚点, 数据加载器等)
+    v10_cfg = config.get('v10_config', {})
+    global_model = get_train_models(
+        model_name=config['server']['model_name'],
+        num_classes=config['dataset']['num_classes'],
+        mode='our'
+    )
+    feature_dim = global_model.learnable_proto.shape[1]
+    num_classes = config['dataset']['num_classes']
+    etf_anchors = generate_etf_anchors(num_classes, feature_dim, device)
+    method_results = defaultdict(list)
+    save_path, local_model_dir = prepare_checkpoint_dir(config)
+    local_models = [copy.deepcopy(global_model) for _ in range(config['client']['num_clients'])]
+    local_data_size = [len(client_idx_map[c]) for c in range(config['client']['num_clients'])]
+    if config['server']['aggregated_by_datasize']:
+        weights = [i/sum(local_data_size) for i in local_data_size]
+    else:
+        weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
+    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    clients_sample_per_class = []
+    
+    # --- lambda预热 ---
+    logger.info("--- Pre-heating V11 models with V9's adaptive lambda strategy ---")
+    for c in range(config['client']['num_clients']):
+        # ... (计算 initial_lambda 并植入 sigma 参数)
+        client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+        v9_cfg = config.get('v9_config', {})
+        initial_lambda = calculate_adaptive_lambda(
+            client_dataloader,
+            config['dataset']['num_classes'],
+            v9_cfg.get('lambda_min', 0.1),
+            v9_cfg.get('lambda_max', 15.0), # Default max from the successful V9 run
+            device
+        )
+        logger.info(f"Client {c}: Calculated initial lambda = {initial_lambda:.4f}")
+        initial_log_lambda = torch.tensor(initial_lambda, device=device).log()
+        local_models[c].log_sigma_sq_local = torch.nn.Parameter(initial_log_lambda)
+        local_models[c].log_sigma_sq_align = torch.nn.Parameter(torch.tensor(0.0, device=device))
+    logger.info("--- V11 model pre-heating complete. ---")
+
+    sigma_lr_val = v10_cfg.get('sigma_lr', 0.005)
+
+    total_rounds = config['server']['num_rounds']
+
+    # --- lambda退火 ---
+    # 初始化共识驱动退火的状态变量
+    initial_proto_std = None
+    current_annealing_factor = 1.0  # 在第一轮，不施加任何退火
+
+    for cr in trange(total_rounds):
+        logger.info(f"Round {cr} starts---| Annealing Factor for this round: {current_annealing_factor:.4f}")
+        local_protos = []
+        
+        for c in range(config['client']['num_clients']):
+            logger.info(f"Client {c} Starts Local Trainning--------|")
+            client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+
+            if cr == 0:
+                clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
+
+            local_model_c = ours_local_training(
+                model=copy.deepcopy(local_models[c]),
+                training_data=client_dataloader,
+                test_dataloader=test_loader,
+                start_epoch=cr * config['server']['local_epochs'],
+                local_epochs=config['server']['local_epochs'],
+                optim_name=config['server']['optimizer'],
+                lr=config['server']['lr'],
+                momentum=config['server']['momentum'],
+                loss_name=config['server']['loss_name'],
+                device=device,
+                num_classes=config['dataset']['num_classes'],
+                sample_per_class=clients_sample_per_class[c],
+                aug_transformer=aug_transformer,
+                client_model_dir=local_model_dir + f"/client_{c}",
+                total_rounds=total_rounds,
+                use_drcl=True, # 依然需要开启，以计算align_loss
+                fixed_anchors=etf_anchors,
+                use_uncertainty_weighting=True, # 激活V10
+                sigma_lr=sigma_lr_val,
+                annealing_factor=current_annealing_factor # 传入当前轮次的退火系数
+            )
+            
+            local_models[c] = local_model_c
+
+            local_protos.append(local_model_c.get_proto().detach())
+
+            # 在日志中打印学到的sigma值，以供分析
+            learned_sigma_local = torch.exp(local_model_c.log_sigma_sq_local).item()**0.5
+            learned_sigma_align = torch.exp(local_model_c.log_sigma_sq_align).item()**0.5
+            effective_lambda = (learned_sigma_local**2) / (learned_sigma_align**2)
+            logger.info(f"Client {c} Learned Sigmas -> L_local: {learned_sigma_local:.4f}, L_align: {learned_sigma_align:.4f}. Effective Lambda: {effective_lambda:.4f}")
+
+        # ================== [ V11 核心创新逻辑 START ] ==================
+        # 在每轮结束后，为下一轮 (cr + 1) 计算退火系数
+        next_round_progress = (cr + 1) / total_rounds
+
+        if annealing_strategy == 'linear':
+            next_annealing_factor = 1.0 - next_round_progress
+        
+        elif annealing_strategy == 'cosine':
+            next_annealing_factor = 0.5 * (1.0 + math.cos(math.pi * next_round_progress))
+        
+        elif annealing_strategy == 'consensus':
+            local_protos_tensor = torch.stack(local_protos)
+            current_proto_std = torch.std(local_protos_tensor, dim=0).mean().item()
+            if initial_proto_std is None:
+                initial_proto_std = current_proto_std
+            
+            if initial_proto_std > 1e-6:
+                next_annealing_factor = min(1.0, current_proto_std / initial_proto_std)
+            else:
+                next_annealing_factor = 1.0
+        
+        else: # 'none'
+            next_annealing_factor = 1.0
+            
+        current_annealing_factor = max(0.0, next_annealing_factor)
+        
+        logger.info(f"Current annealing strategy: {annealing_strategy}. Next round's annealing factor set to: {current_annealing_factor:.4f}")
+        # =================== [ V11 核心创新逻辑 END ] ===================
+
+        logger.info(f"Round {cr} Finish--------|")
+        
+        # ... [与V10相同的评估和保存逻辑]
+        method_name = 'OursV11+SimpleFeatureServer'
+        ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
+        global_proto = aggregate_local_protos(local_protos)
+        ens_acc = eval_with_proto(ensemble_model, test_loader, device, global_proto)
+        logger.info(f"The test accuracy of {method_name}: {ens_acc}")
+        method_results[method_name].append(ens_acc)
+        save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
