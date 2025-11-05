@@ -23,9 +23,9 @@ client:
   num_clients: 5
 
 server:
-  num_rounds: 10
+  num_rounds: 30
   frac_clients: 1.0
-  lr: 0.05
+  lr: 0.005
   local_epochs: 5
   optimizer: "sgd" # choice: [sgd, adam]
   momentum: 0.9
@@ -94,4 +94,4 @@ v9_config:
 
 v10_config:
   use_uncertainty_weighting: true
-  sigma_lr: 0.0001
+  sigma_lr: 0.00005

@@ -5,7 +5,7 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False):    
     model.train()
     model.to(device)
 
@@ -110,20 +110,37 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                 # V10: 动态学习权重
                 sigma_sq_local = torch.exp(model.log_sigma_sq_local)
                 sigma_sq_align = torch.exp(model.log_sigma_sq_align)
-                
-                loss_local_weighted = (0.5 / sigma_sq_local) * base_loss
-                loss_align_weighted = (0.5 / sigma_sq_align) * align_loss * annealing_factor
-                
-                # 正则化项，防止sigma无限增大
+
+                ## V12: 新的内部退火逻辑
+                if use_dynamic_task_attenuation:
+                    # 计算全局训练进度
+                    current_step = e # 使用epoch级别进度
+                    progress = current_step / total_training_steps
+                    # 使用余弦衰减函数，从1平滑降到0
+                    schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
+                    schedule_factor = max(0.0, schedule_factor)
+
+                    # 修改 loss_for_sigma，对 align_loss 的重要性进行衰减
+                    loss_for_sigma = (0.5 / sigma_sq_local) * base_loss.detach() + \
+                                   schedule_factor * (0.5 / sigma_sq_align) * align_loss.detach()
+                    
+                    # loss_for_weights 不再需要外部的 annealing_factor
+                    effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
+                    loss_for_weights = base_loss + effective_lambda * align_loss
+
+                # V11: 保留原有的外部退火逻辑以供对比
+                else:
+                    loss_for_sigma = (0.5 / sigma_sq_local) * base_loss.detach() + \
+                                    (0.5 / sigma_sq_align) * align_loss.detach()
+                    
+                    effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
+                    lambda_annealed = effective_lambda * annealing_factor
+                    loss_for_weights = base_loss + lambda_annealed * align_loss
+
+                # 共同的正则项和最终损失
                 loss_reg = 0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align))
-                
-                unscaled_loss = loss_local_weighted + loss_align_weighted + loss_reg
+                loss = loss_for_weights + loss_for_sigma + loss_reg
 
-                # 以上实际上会造成loss被缩放，相当于变相地改变了lr，因此我们需要一个额外的缩放因子来稳定训练
-                # 使用 .detach() 来确保这个缩放操作不影响 sigma 本身的梯度计算
-
-                rescaling_factor = (2.0 * sigma_sq_local).detach()
-                loss = unscaled_loss * rescaling_factor
                 
             elif use_drcl: # 兼容 V7, V8, V9
                 # 固定的或自适应的lambda + 全局退火
