@@ -5,7 +5,8 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False):    
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0):
+   
     model.train()
     model.to(device)
 
@@ -120,26 +121,34 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
                     schedule_factor = max(0.0, schedule_factor)
 
-                    # 修改 loss_for_sigma，对 align_loss 的重要性进行衰减
-                    loss_for_sigma = (0.5 / sigma_sq_local) * base_loss.detach() + \
-                                   schedule_factor * (0.5 / sigma_sq_align) * align_loss.detach()
-                    
+                    # 加入新的稳定锚正则项
+                    stability_anchor = gamma_reg / sigma_sq_align
+
+                    loss_sigma_main  = (0.5 / sigma_sq_local) * base_loss.detach() + \
+                                    schedule_factor * (0.5 / sigma_sq_align) * align_loss.detach()
+                                        
                     # loss_for_weights 不再需要外部的 annealing_factor
                     effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
                     loss_for_weights = base_loss + effective_lambda * align_loss
 
                 # V11: 保留原有的外部退火逻辑以供对比
                 else:
-                    loss_for_sigma = (0.5 / sigma_sq_local) * base_loss.detach() + \
+                    stability_anchor = 0 # 在旧版本中关闭此功能
+
+                    loss_sigma_main = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     (0.5 / sigma_sq_align) * align_loss.detach()
                     
                     effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
                     lambda_annealed = effective_lambda * annealing_factor
                     loss_for_weights = base_loss + lambda_annealed * align_loss
 
-                # 共同的正则项和最终损失
-                loss_reg = 0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align))
-                loss = loss_for_weights + loss_for_sigma + loss_reg
+                # 将所有与 sigma 相关的项组合在一起
+                # 这是最关键的修正：loss_reg 不再加入最终的 loss，而是与 loss_for_sigma 结合
+                loss_for_sigma_total = loss_sigma_main + \
+                           0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align)) + \
+                           stability_anchor
+
+                loss = loss_for_weights + loss_for_sigma_total
 
                 
             elif use_drcl: # 兼容 V7, V8, V9

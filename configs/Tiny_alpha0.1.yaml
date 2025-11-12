@@ -25,7 +25,7 @@ client:
 server:
   num_rounds: 30
   frac_clients: 1.0
-  lr: 0.005
+  lr: 0.0001
   local_epochs: 5
   optimizer: "sgd" # choice: [sgd, adam]
   momentum: 0.9
