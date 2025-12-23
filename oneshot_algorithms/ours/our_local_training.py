@@ -5,7 +5,7 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0):
    
     model.train()
     model.to(device)
@@ -105,7 +105,15 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                 align_loss = alignment_loss_fn(model.learnable_proto, target_anchor)
             elif use_drcl and fixed_anchors is not None:
                 # OursV5, V6, V7 逻辑: 对齐到固定目标
-                align_loss = alignment_loss_fn(model.learnable_proto, fixed_anchors)
+                # 只对当前batch中出现的类计算对齐损失 (class mask)
+                unique_classes = torch.unique(target)
+                if len(unique_classes) > 0:
+                    # 只取出现类的prototype和anchor
+                    proto_subset = model.learnable_proto[unique_classes]
+                    anchor_subset = fixed_anchors[unique_classes]
+                    align_loss = alignment_loss_fn(proto_subset, anchor_subset)
+                else:
+                    align_loss = 0
 
             if use_uncertainty_weighting:
                 # V10: 动态学习权重
@@ -121,11 +129,15 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
                     schedule_factor = max(0.0, schedule_factor)
 
-                    # 加入新的稳定锚正则项
-                    stability_anchor = gamma_reg / sigma_sq_align
+                    # 稳定正则: ReLU-hinge 形式 L_reg = γ·ReLU(λ_eff - λ_max)²
+                    # 注意：这里用非detach的λ_eff，让梯度可以流向σ参数
+                    lambda_eff_for_reg = sigma_sq_local / sigma_sq_align
+                    stability_reg = gamma_reg * torch.relu(lambda_eff_for_reg - lambda_max) ** 2
 
+                    # 修正版: schedule_factor 放在 log 正则项上，而非数据项
+                    # 这保证 s(p)->0 时, log正则项消失, σ²_align->∞, λ_eff->0
                     loss_sigma_main  = (0.5 / sigma_sq_local) * base_loss.detach() + \
-                                    schedule_factor * (0.5 / sigma_sq_align) * align_loss.detach()
+                                    (0.5 / sigma_sq_align) * align_loss.detach()
                                         
                     # loss_for_weights 不再需要外部的 annealing_factor
                     effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
@@ -133,7 +145,8 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
 
                 # V11: 保留原有的外部退火逻辑以供对比
                 else:
-                    stability_anchor = 0 # 在旧版本中关闭此功能
+                    schedule_factor = 1.0  # V11不使用内部退火，保持log正则项完整
+                    stability_reg = 0  # 在旧版本中关闭此功能
 
                     loss_sigma_main = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     (0.5 / sigma_sq_align) * align_loss.detach()
@@ -143,10 +156,11 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     loss_for_weights = base_loss + lambda_annealed * align_loss
 
                 # 将所有与 sigma 相关的项组合在一起
-                # 这是最关键的修正：loss_reg 不再加入最终的 loss，而是与 loss_for_sigma 结合
+                # 关键修正: schedule_factor 乘在 log(sigma_sq_align) 上
+                # 当 s(p)->0 时，对齐任务的正则项消失，σ²_align 会趋向无穷大
                 loss_for_sigma_total = loss_sigma_main + \
-                           0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align)) + \
-                           stability_anchor
+                           0.5 * (torch.log(sigma_sq_local) + schedule_factor * torch.log(sigma_sq_align)) + \
+                           stability_reg
 
                 loss = loss_for_weights + loss_for_sigma_total
 
