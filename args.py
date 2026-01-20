@@ -8,6 +8,7 @@ def args_parser():
     parser.add_argument('--lambdaval', type=float, default=0, help='Alignment loss weight')
     parser.add_argument('--annealing_strategy', type=str, default='none', help='Select the annealing strategy for the alignment loss weight (lambda).')
     parser.add_argument('--gamma_reg', type=float, default=1e-5, help='Regularization factor for the alignment loss weight sigma_sq_align in V12.')
+    parser.add_argument('--lambda_max', type=float, default=50.0, help='Maximum threshold for effective lambda in stability regularization (OursV13).')
 
     args = parser.parse_args()
 

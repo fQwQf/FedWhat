@@ -1485,7 +1485,7 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
 
-def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_reg,**kwargs):
+def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_reg, lambda_max=50.0, **kwargs):
     logger.info('OneshotOursV13: V12 with stability_anchor')
     
     # --- 标准初始化 ---
@@ -1568,7 +1568,8 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
                 sigma_lr=sigma_lr_val,
                 # 新增的开关，用于激活V12的内部退火逻辑
                 use_dynamic_task_attenuation=True,
-                gamma_reg = gamma_reg
+                gamma_reg = gamma_reg,
+                lambda_max = lambda_max
             )
             
             local_models[c] = local_model_c
@@ -1620,7 +1621,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
         method_results[method_name].append(ens_acc)
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
-def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_reg,**kwargs):
+def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_reg, lambda_max=50.0, **kwargs):
     logger.info('OneshotOursV14: V13 with lambda_max_threshold ')
     
     # --- 标准初始化 ---
@@ -1704,6 +1705,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
                 # 新增的开关，用于激活V12的内部退火逻辑
                 use_dynamic_task_attenuation=True,
                 gamma_reg = gamma_reg,
+                lambda_max = lambda_max,
                 lambda_max_threshold = True
             )
             

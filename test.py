@@ -76,9 +76,9 @@ elif config_args.algo == 'OursV11':
 elif config_args.algo == 'OursV12':
     OneshotOursV12(trainset, test_loader, client_idx_map, config, device)
 elif config_args.algo == 'OursV13':
-    OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg)
+    OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
 elif config_args.algo == 'OursV14':
-    OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg)
+    OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
 elif config_args.algo == 'OursV6IFFI':
     OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_simple_server=False)
 elif config_args.algo == 'OursV4IFFI':
