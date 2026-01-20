@@ -5,7 +5,7 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max_threshold = False):
    
     model.train()
     model.to(device)
@@ -121,8 +121,15 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
                     schedule_factor = max(0.0, schedule_factor)
 
-                    # 加入新的稳定锚正则项
-                    stability_anchor = gamma_reg / sigma_sq_align
+                    gamma_reg_align = gamma_reg
+                    gamma_reg_local = gamma_reg
+
+                    # 1. 为 sigma_sq_align 设计“防坠落”锚点
+                    stability_anchor_align = gamma_reg_align / sigma_sq_align # 防止无限减小
+
+                    # 2. 为 sigma_sq_local 设计“天花板”锚点
+                    #    我们直接对log_sigma_sq_local参数进行L2惩罚
+                    ceiling_anchor_local = gamma_reg_local * (model.log_sigma_sq_local ** 2) # 防止无限增大
 
                     loss_sigma_main  = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     schedule_factor * (0.5 / sigma_sq_align) * align_loss.detach()
@@ -133,7 +140,8 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
 
                 # V11: 保留原有的外部退火逻辑以供对比
                 else:
-                    stability_anchor = 0 # 在旧版本中关闭此功能
+                    stability_anchor_align = 0
+                    ceiling_anchor_local = 0 # 在旧版本中关闭此功能
 
                     loss_sigma_main = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     (0.5 / sigma_sq_align) * align_loss.detach()
@@ -142,11 +150,24 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     lambda_annealed = effective_lambda * annealing_factor
                     loss_for_weights = base_loss + lambda_annealed * align_loss
 
+                # V14: 添加新的 lambda 防爆逻辑
+                if lambda_max_threshold:
+                    # 1. 计算可微分的 lambda
+                    effective_lambda_diff = sigma_sq_local / sigma_sq_align
+
+                    # 2. 设计 lambda 的正则化损失
+                    lambda_max_threshold = 50.0 # 设定一个合理的λ上限，例如50
+                    lambda_reg_gamma = 0.01 # 惩罚强度
+                    lambda_regularization_loss = lambda_reg_gamma * torch.nn.functional.relu(effective_lambda_diff - lambda_max_threshold)
+                else:
+                    lambda_regularization_loss = 0
+
                 # 将所有与 sigma 相关的项组合在一起
                 # 这是最关键的修正：loss_reg 不再加入最终的 loss，而是与 loss_for_sigma 结合
                 loss_for_sigma_total = loss_sigma_main + \
                            0.5 * (torch.log(sigma_sq_local) + torch.log(sigma_sq_align)) + \
-                           stability_anchor
+                           stability_anchor_align + ceiling_anchor_local + \
+                           lambda_regularization_loss 
 
                 loss = loss_for_weights + loss_for_sigma_total
 

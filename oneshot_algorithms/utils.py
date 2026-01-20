@@ -23,6 +23,10 @@ def save_perf_records(save_path, save_file_name, data_dict, save_mode='w'):
 
 def save_best_local_model(save_path, model, save_name):
 
+    if save_path is None:
+        logger.warning(f"save_best_local_model called with save_path=None for {save_name}; skipping save.")
+        return
+
     os.makedirs(save_path, exist_ok=True)
     torch.save(model.state_dict(), os.path.join(save_path, save_name))
     logger.info(f"Save the model in {os.path.join(save_path, save_name)}")
