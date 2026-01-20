@@ -31,63 +31,63 @@ jobs:
     extra_args:
       seed: 42
   
-  # CIFAR-100 α=0.05 - Seed 100
-  - name: "CIFAR100_a005_FedAvg_seed100"
+  # CIFAR-100 α=0.05 - Seed 114514
+  - name: "CIFAR100_a005_FedAvg_seed114514"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "FedAvg"
-    log_path: "logs/multi_seed/CIFAR100_a005_FedAvg_seed100.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_FedAvg_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "CIFAR100_a005_FedETF_seed100"
+  - name: "CIFAR100_a005_FedETF_seed114514"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "FedETF"
-    log_path: "logs/multi_seed/CIFAR100_a005_FedETF_seed100.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_FedETF_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "CIFAR100_a005_OursV7_seed100"
+  - name: "CIFAR100_a005_OursV7_seed114514"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "OursV7"
-    log_path: "logs/multi_seed/CIFAR100_a005_OursV7_seed100.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_OursV7_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "CIFAR100_a005_OursV14_seed100"
+  - name: "CIFAR100_a005_OursV14_seed114514"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "OursV14"
-    log_path: "logs/multi_seed/CIFAR100_a005_OursV14_seed100.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_OursV14_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  # CIFAR-100 α=0.05 - Seed 2023
-  - name: "CIFAR100_a005_FedAvg_seed2023"
+  # CIFAR-100 α=0.05 - Seed 350234
+  - name: "CIFAR100_a005_FedAvg_seed350234"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "FedAvg"
-    log_path: "logs/multi_seed/CIFAR100_a005_FedAvg_seed2023.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_FedAvg_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "CIFAR100_a005_FedETF_seed2023"
+  - name: "CIFAR100_a005_FedETF_seed350234"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "FedETF"
-    log_path: "logs/multi_seed/CIFAR100_a005_FedETF_seed2023.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_FedETF_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "CIFAR100_a005_OursV7_seed2023"
+  - name: "CIFAR100_a005_OursV7_seed350234"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "OursV7"
-    log_path: "logs/multi_seed/CIFAR100_a005_OursV7_seed2023.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_OursV7_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "CIFAR100_a005_OursV14_seed2023"
+  - name: "CIFAR100_a005_OursV14_seed350234"
     config: "configs/CIFAR100_alpha0.05.yaml"
     algorithm: "OursV14"
-    log_path: "logs/multi_seed/CIFAR100_a005_OursV14_seed2023.log"
+    log_path: "logs/multi_seed/CIFAR100_a005_OursV14_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
   # SVHN α=0.05 - Seed 42
   - name: "SVHN_a005_FedAvg_seed42"
@@ -118,60 +118,60 @@ jobs:
     extra_args:
       seed: 42
   
-  # SVHN α=0.05 - Seed 100
-  - name: "SVHN_a005_FedAvg_seed100"
+  # SVHN α=0.05 - Seed 114514
+  - name: "SVHN_a005_FedAvg_seed114514"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "FedAvg"
-    log_path: "logs/multi_seed/SVHN_a005_FedAvg_seed100.log"
+    log_path: "logs/multi_seed/SVHN_a005_FedAvg_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "SVHN_a005_FedETF_seed100"
+  - name: "SVHN_a005_FedETF_seed114514"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "FedETF"
-    log_path: "logs/multi_seed/SVHN_a005_FedETF_seed100.log"
+    log_path: "logs/multi_seed/SVHN_a005_FedETF_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "SVHN_a005_OursV7_seed100"
+  - name: "SVHN_a005_OursV7_seed114514"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "OursV7"
-    log_path: "logs/multi_seed/SVHN_a005_OursV7_seed100.log"
+    log_path: "logs/multi_seed/SVHN_a005_OursV7_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  - name: "SVHN_a005_OursV14_seed100"
+  - name: "SVHN_a005_OursV14_seed114514"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "OursV14"
-    log_path: "logs/multi_seed/SVHN_a005_OursV14_seed100.log"
+    log_path: "logs/multi_seed/SVHN_a005_OursV14_seed114514.log"
     extra_args:
-      seed: 100
+      seed: 114514
   
-  # SVHN α=0.05 - Seed 2023
-  - name: "SVHN_a005_FedAvg_seed2023"
+  # SVHN α=0.05 - Seed 350234
+  - name: "SVHN_a005_FedAvg_seed350234"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "FedAvg"
-    log_path: "logs/multi_seed/SVHN_a005_FedAvg_seed2023.log"
+    log_path: "logs/multi_seed/SVHN_a005_FedAvg_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "SVHN_a005_FedETF_seed2023"
+  - name: "SVHN_a005_FedETF_seed350234"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "FedETF"
-    log_path: "logs/multi_seed/SVHN_a005_FedETF_seed2023.log"
+    log_path: "logs/multi_seed/SVHN_a005_FedETF_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "SVHN_a005_OursV7_seed2023"
+  - name: "SVHN_a005_OursV7_seed350234"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "OursV7"
-    log_path: "logs/multi_seed/SVHN_a005_OursV7_seed2023.log"
+    log_path: "logs/multi_seed/SVHN_a005_OursV7_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234
   
-  - name: "SVHN_a005_OursV14_seed2023"
+  - name: "SVHN_a005_OursV14_seed350234"
     config: "configs/SVHN_alpha0.05.yaml"
     algorithm: "OursV14"
-    log_path: "logs/multi_seed/SVHN_a005_OursV14_seed2023.log"
+    log_path: "logs/multi_seed/SVHN_a005_OursV14_seed350234.log"
     extra_args:
-      seed: 2023
+      seed: 350234

@@ -79,7 +79,7 @@ def find_available_gpu(min_free_memory_mb: int = 8000, max_utilization: int = 30
 def wait_for_available_gpu(min_free_memory_mb: int = 8000, 
                           max_utilization: int = 30,
                           check_interval: int = 60,
-                          max_wait_time: int = 3600) -> int:
+                          max_wait_time: int = 36000) -> int:
     """
     Wait for an available GPU, checking periodically
     
@@ -107,6 +107,43 @@ def wait_for_available_gpu(min_free_memory_mb: int = 8000,
     return -1
 
 
+def create_temp_config_with_seed(base_config_path: str, seed: int, temp_dir: str = "configs/temp") -> str:
+    """
+    Create a temporary config file with modified seed
+    
+    Args:
+        base_config_path: Path to base configuration file
+        seed: Seed value to set
+        temp_dir: Directory to store temporary configs
+    
+    Returns:
+        Path to temporary config file
+    """
+    import os
+    from pathlib import Path
+    
+    # Create temp directory if it doesn't exist
+    Path(temp_dir).mkdir(parents=True, exist_ok=True)
+    
+    # Load base config
+    with open(base_config_path, 'r') as f:
+        config = yaml.safe_load(f)
+    
+    # Modify seed
+    config['seed'] = seed
+    
+    # Generate temp config filename
+    base_name = Path(base_config_path).stem
+    temp_config_path = f"{temp_dir}/{base_name}_seed{seed}.yaml"
+    
+    # Write temp config
+    with open(temp_config_path, 'w') as f:
+        yaml.dump(config, f, default_flow_style=False)
+    
+    logger.info(f"Created temp config: {temp_config_path} with seed={seed}")
+    return temp_config_path
+
+
 def run_experiment(config_path: str, algorithm: str, gpu_id: int, 
                   log_path: str, extra_args: Dict = None) -> subprocess.Popen:
     """
@@ -115,16 +152,26 @@ def run_experiment(config_path: str, algorithm: str, gpu_id: int,
     Returns:
         Process object
     """
+    import os
+    
+    # Handle seed parameter specially - must be in config file, not CLI
+    actual_config_path = config_path
+    if extra_args and 'seed' in extra_args:
+        seed = extra_args.pop('seed')  # Remove from extra_args
+        actual_config_path = create_temp_config_with_seed(config_path, seed)
+    
     cmd = [
         'python', 'test.py',
-        '--cfp', config_path,
+        '--cfp', actual_config_path,
         '--algo', algorithm
     ]
     
-    # Add extra arguments
+    # Add remaining extra arguments (gamma_reg, lambda_max, etc.)
     if extra_args:
         for key, value in extra_args.items():
-            cmd.extend([f'--{key}', str(value)])
+            # Convert underscores to hyphens for CLI args if needed
+            cli_key = key.replace('_', '_')  # Keep as is for now
+            cmd.extend([f'--{cli_key}', str(value)])
     
     env = os.environ.copy()
     env['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
@@ -140,6 +187,7 @@ def run_experiment(config_path: str, algorithm: str, gpu_id: int,
         )
     
     return process
+
 
 
 class ExperimentQueue:
@@ -223,22 +271,38 @@ class ExperimentQueue:
             self.pending_jobs.insert(0, job)  # Re-add to queue
             return False
     
-    def run_all(self, check_interval: int = 30):
-        """Run all queued jobs, managing GPU resources"""
+    def run_all(self, check_interval: int = 30, launch_delay: int = 30):
+        """
+        Run all queued jobs, managing GPU resources
+        
+        Args:
+            check_interval: Seconds to wait between regular status checks
+            launch_delay: Seconds to wait after launching a job before checking for next GPU
+                          (Ensures memory allocation stabilizes)
+        """
         logger.info(f"Starting experiment queue with {len(self.pending_jobs)} jobs")
+        logger.info(f"Launch cooldown set to {launch_delay}s")
         
         while self.pending_jobs or self.running_jobs:
             # Check for completed jobs
             self.check_running_jobs()
             
-            # Try to start new jobs
-            while self.try_start_job():
-                time.sleep(2)  # Small delay between launches
+            # Try to start new jobs one by one with cooldown
+            while self.pending_jobs:
+                if self.try_start_job():
+                    # If job started, wait for memory to allocate before trying next one
+                    logger.info(f"Waiting {launch_delay}s for memory allocation to stabilize...")
+                    time.sleep(launch_delay)
+                    # Check status of other jobs while waiting
+                    self.check_running_jobs()
+                else:
+                    # No GPU found or max concurrent reached
+                    break
             
             # Status update
             if self.pending_jobs or self.running_jobs:
-                logger.info(f"Queue status: {len(self.running_jobs)} running, "
-                           f"{len(self.pending_jobs)} pending")
+                # logger.info(f"Queue status: {len(self.running_jobs)} running, "
+                #            f"{len(self.pending_jobs)} pending")
                 time.sleep(check_interval)
         
         logger.info("All jobs completed!")

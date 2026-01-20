@@ -18,9 +18,9 @@ mkdir -p logs/lambda_max_sensitivity
 mkdir -p logs/sigma_lr_sensitivity
 
 # Configuration parameters
-MIN_MEMORY=7000        # Minimum free GPU memory in MB (8GB)
-MAX_UTIL=30            # Maximum GPU utilization percentage
-MAX_CONCURRENT=4       # Maximum concurrent experiments (adjust based on server)
+MIN_MEMORY=8000        # Minimum free GPU memory in MB (8GB)
+MAX_UTIL=90            # Maximum GPU utilization percentage
+MAX_CONCURRENT=16       # Maximum concurrent experiments (adjust based on server)
 
 echo ""
 echo "Configuration:"
