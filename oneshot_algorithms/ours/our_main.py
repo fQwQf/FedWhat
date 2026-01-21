@@ -393,7 +393,7 @@ def OneshotOurs(trainset, test_loader, client_idx_map, config, device, server_st
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], device)
 
     # visualization
 
@@ -540,7 +540,7 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], device)
 
     clients_sample_per_class = []
 
@@ -641,7 +641,7 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], device)
 
     clients_sample_per_class = []
 
@@ -741,7 +741,7 @@ def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], device)
 
     clients_sample_per_class = []
 

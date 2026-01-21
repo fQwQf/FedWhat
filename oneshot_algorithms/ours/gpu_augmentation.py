@@ -6,6 +6,7 @@ This module replaces CPU-based torchvision transforms with GPU-accelerated opera
 import torch
 import torch.nn as nn
 import kornia.augmentation as K
+from dataset_helper import NORMALIZE_DICT
 
 
 class GPUSupConAugmentation(nn.Module):
@@ -14,7 +15,7 @@ class GPUSupConAugmentation(nn.Module):
     Replicates the CPU transforms from get_supcon_transform() using Kornia.
     """
     
-    def __init__(self, dataset_name='CIFAR10', normalize_dict=None):
+    def __init__(self, dataset_name='CIFAR10'):
         super(GPUSupConAugmentation, self).__init__()
         
         # Determine image size based on dataset
@@ -24,19 +25,14 @@ class GPUSupConAugmentation(nn.Module):
             img_size = 64
         
         # Get normalization parameters
-        if normalize_dict is None:
-            # Default CIFAR-like normalization
-            mean = [0.5, 0.5, 0.5]
-            std = [0.5, 0.5, 0.5]
+        if dataset_name in NORMALIZE_DICT:
+            mean = NORMALIZE_DICT[dataset_name]['mean']
+            std = NORMALIZE_DICT[dataset_name]['std']
         else:
-            mean = normalize_dict.get('mean', [0.5, 0.5, 0.5])
-            std = normalize_dict.get('std', [0.5, 0.5, 0.5])
-            # Convert to list if tuple
-            if isinstance(mean, tuple):
-                mean = list(mean)
-            if isinstance(std, tuple):
-                std = list(std)
-        
+            # Default to 0.5 if not found (safer fallback)
+            mean = (0.5, 0.5, 0.5)
+            std = (0.5, 0.5, 0.5)
+
         # Build GPU augmentation pipeline
         # Kornia augmentations are applied sequentially
         self.augmentation = nn.Sequential(
@@ -58,8 +54,8 @@ class GPUSupConAugmentation(nn.Module):
             # RandomGrayscale
             K.RandomGrayscale(p=0.2),
             
-            # Normalize (always applied)
-            K.Normalize(mean=mean, std=std)
+            # Normalize at the END of the pipeline (data enters as [0, 1])
+            K.Normalize(mean=torch.tensor(mean), std=torch.tensor(std))
         )
     
     def forward(self, x):
@@ -75,17 +71,16 @@ class GPUSupConAugmentation(nn.Module):
         return self.augmentation(x)
 
 
-def get_gpu_augmentation(dataset_name, normalize_dict, device):
+def get_gpu_augmentation(dataset_name, device):
     """
     Factory function to create GPU augmentation module.
     
     Args:
         dataset_name: Name of the dataset ('CIFAR10', 'CIFAR100', 'SVHN', etc.)
-        normalize_dict: Dictionary with 'mean' and 'std' keys for normalization
         device: torch.device to place the augmentation module on
         
     Returns:
         GPUSupConAugmentation module on specified device
     """
-    aug_module = GPUSupConAugmentation(dataset_name, normalize_dict)
+    aug_module = GPUSupConAugmentation(dataset_name)
     return aug_module.to(device)

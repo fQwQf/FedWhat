@@ -5,7 +5,7 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0, lambda_max_threshold = False):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0):
    
     model.train()
     model.to(device)
@@ -64,14 +64,11 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
     for e in range(start_epoch, start_epoch + local_epochs):
         total_loss = 0
         for batch_idx, (data, target) in enumerate(training_data):
-            # Move data to GPU FIRST (critical for GPU augmentation)
+            
+            
             data, target = data.to(device), target.to(device)
-            
-            # Apply GPU augmentation (now on device)
-            aug_data1 = aug_transformer(data)
-            aug_data2 = aug_transformer(data)
+            aug_data1, aug_data2 = aug_transformer(data), aug_transformer(data)
             aug_data = torch.cat([aug_data1, aug_data2], dim=0)
-            
             bsz = target.shape[0]
 
             optimizer.zero_grad()
@@ -157,18 +154,6 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     lambda_annealed = effective_lambda * annealing_factor
                     loss_for_weights = base_loss + lambda_annealed * align_loss
 
-                # V14: 添加新的 lambda 防爆逻辑
-                if lambda_max_threshold:
-                    # 1. 计算可微分的 lambda
-                    effective_lambda_diff = sigma_sq_local / sigma_sq_align
-
-                    # 2. 设计 lambda 的正则化损失
-                    lambda_max_threshold = 50.0 # 设定一个合理的λ上限，例如50
-                    lambda_reg_gamma = 0.01 # 惩罚强度
-                    lambda_regularization_loss = lambda_reg_gamma * torch.nn.functional.relu(effective_lambda_diff - lambda_max_threshold)
-                else:
-                    lambda_regularization_loss = 0
-
                 # 将所有与 sigma 相关的项组合在一起
                 # 关键修正: schedule_factor 乘在 log(sigma_sq_align) 上
                 # 当 s(p)->0 时，对齐任务的正则项消失，σ²_align 会趋向无穷大
@@ -196,20 +181,10 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
 
             total_loss += loss.item()
 
+        train_test_acc = test_acc(copy.deepcopy(model), test_dataloader, device, mode='etf')
+        train_set_acc = test_acc(copy.deepcopy(model), training_data, device, mode='etf')
 
-        # Optimize testing: only test every 5 epochs to reduce CPU overhead
-        if e % 5 == 0:
-            with torch.no_grad():
-                train_test_acc = test_acc(model, test_dataloader, device, mode='etf')
-                train_set_acc = test_acc(model, training_data, device, mode='etf')
-        else:
-            # Skip expensive testing for intermediate epochs
-            train_test_acc, train_set_acc = 0.0, 0.0
-
-        if train_test_acc > 0 or train_set_acc > 0:  # Only log when we have actual values
-            logger.info(f'Epoch {e} loss: {total_loss}; train accuracy: {train_set_acc}; test accuracy: {train_test_acc}')
-        else:
-            logger.info(f'Epoch {e} loss: {total_loss}')
+        logger.info(f'Epoch {e} loss: {total_loss}; train accuracy: {train_set_acc}; test accuracy: {train_test_acc}')
 
         if e % save_freq == 0:
             save_best_local_model(client_model_dir, model, f'epoch_{e}.pth')

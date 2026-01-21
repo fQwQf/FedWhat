@@ -16,13 +16,17 @@ logger.info(f"config: {config}")
 setup_seed(config['seed'])
 
 
+# Determine if we should normalize on CPU (for standard algos) or GPU (for Ours)
+normalize_on_cpu = not config_args.algo.startswith('Ours')
+
 trainset, testset, client_idx_map = get_fl_dataset(
     config["dataset"]["data_name"], 
     config["dataset"]["root_path"], 
     config['client']['num_clients'], 
     config['distribution']['type'], 
     config['distribution']['label_num_per_client'], 
-    config['distribution']['alpha'])
+    config['distribution']['alpha'],
+    normalize=normalize_on_cpu)
 
 test_loader = torch.utils.data.DataLoader(testset, batch_size=config['dataset']['test_batch_size'], shuffle=True)
 

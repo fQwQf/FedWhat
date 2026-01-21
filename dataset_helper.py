@@ -17,27 +17,34 @@ NORMALIZE_DICT = {
     'EMNIST_digits': dict(mean=(0.5,), std=(0.5,)),
 }
 
-def load_dataset(dataset_name, data_path):
+def load_dataset(dataset_name, data_path, normalize=True):
+
     if dataset_name == 'MNIST':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-            ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
         train_dataset = torchvision.datasets.MNIST(root=data_path, train=True, transform=transform, download=True)
         test_dataset = torchvision.datasets.MNIST(root=data_path, train=False, transform=transform, download=True)
     elif dataset_name == 'FMNIST':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-            ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
         
         train_dataset = torchvision.datasets.FashionMNIST(root=data_path, train=True, transform=transform, download=True)
         test_dataset = torchvision.datasets.FashionMNIST(root=data_path, train=False, transform=transform, download=True)
     elif dataset_name == 'CIFAR10':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            # transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-            ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
         
         # test_transform = transforms.Compose([
         #     transforms.ToTensor(),
@@ -47,20 +54,24 @@ def load_dataset(dataset_name, data_path):
         test_dataset = torchvision.datasets.CIFAR10(root=data_path, train=False, transform=transform, download=True)
 
     elif dataset_name == 'CIFAR100':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-        ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
         train_dataset = torchvision.datasets.CIFAR100(root=data_path, train=True, transform=transform, download=True)
         test_dataset = torchvision.datasets.CIFAR100(root=data_path, train=False, transform=transform, download=True)
 
     elif dataset_name == 'Tiny-ImageNet':
-        train_transform = transforms.Compose([
+        train_transform = [
             # transforms.RandomRotation(20),
             # transforms.RandomHorizontalFlip(0.5),
             transforms.ToTensor(),
-            # transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-        ])
+        ]
+        if normalize:
+            train_transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        train_transform = transforms.Compose(train_transform)
 
         test_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -70,19 +81,23 @@ def load_dataset(dataset_name, data_path):
         test_dataset = torchvision.datasets.ImageFolder(root=os.path.join(data_path, 'tiny-imagenet-200/val'), transform=test_transform)
 
     elif dataset_name == 'SVHN':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-        ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
 
         train_dataset = torchvision.datasets.SVHN(root=os.path.join(data_path, 'SVHN'), split='train', download=True, transform=transform)
         test_dataset = torchvision.datasets.SVHN(root=os.path.join(data_path, 'SVHN'), split='test', download=True, transform=transform)
 
     elif dataset_name == 'EMNIST_digits':
-        transform = transforms.Compose([
+        transform = [
             transforms.ToTensor(),
-            transforms.Normalize(**NORMALIZE_DICT[dataset_name])
-        ])
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
 
         train_dataset = torchvision.datasets.EMNIST(root=data_path, split='digits', train=True, transform=transform, download=True)
         test_dataset = torchvision.datasets.EMNIST(root=data_path, split='digits', train=False, transform=transform, download=True)
@@ -235,8 +250,8 @@ def dirichlet(data_idxs_dict, num_users, alpha):
     return client_idx_map
 
 
-def get_fl_dataset(dataset_name, dataset_path, num_users, distribution, distribution_params=2, alpha=0.1):
-    train_set, test_set = load_dataset(dataset_name, dataset_path)
+def get_fl_dataset(dataset_name, dataset_path, num_users, distribution, distribution_params=2, alpha=0.1, normalize=True):
+    train_set, test_set = load_dataset(dataset_name, dataset_path, normalize=normalize)
     data_idx_dict = build_dataset_idxs(train_set, dataset_name)
 
     if distribution == 'iid':

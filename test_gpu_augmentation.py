@@ -47,7 +47,6 @@ def test_gpu_augmentation():
     try:
         aug_module = get_gpu_augmentation(
             dataset_name=dataset_name,
-            normalize_dict=NORMALIZE_DICT[dataset_name],
             device=device
         )
         print("[OK] GPU augmentation module created successfully")
@@ -101,7 +100,7 @@ def test_gpu_augmentation():
     # Test with SVHN (another dataset)
     print(f"\n[TEST] Testing with SVHN dataset...")
     try:
-        svhn_aug = get_gpu_augmentation('SVHN', NORMALIZE_DICT['SVHN'], device)
+        svhn_aug = get_gpu_augmentation('SVHN', device)
         svhn_output = svhn_aug(dummy_input)
         print(f"[OK] SVHN augmentation works, output shape: {svhn_output.shape}")
     except Exception as e:
