@@ -7,6 +7,7 @@ from common_libs import *
 import torch.nn.functional as F
 
 from oneshot_algorithms.ours.our_local_training import ours_local_training
+from oneshot_algorithms.ours.gpu_augmentation import get_gpu_augmentation
 
 import math
 
@@ -392,7 +393,7 @@ def OneshotOurs(trainset, test_loader, client_idx_map, config, device, server_st
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
 
     # visualization
 
@@ -539,7 +540,7 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
 
     clients_sample_per_class = []
 
@@ -640,7 +641,7 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
 
     clients_sample_per_class = []
 
@@ -740,7 +741,7 @@ def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
 
     clients_sample_per_class = []
 
@@ -860,7 +861,7 @@ def OneshotOursV8(trainset, test_loader, client_idx_map, config, device):
     local_data_size = [len(client_idx_map[c]) for c in range(config['client']['num_clients'])]
     weights = [i/sum(local_data_size) for i in local_data_size] if config['server']['aggregated_by_datasize'] else [1/config['client']['num_clients']] * config['client']['num_clients']
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
     clients_sample_per_class = []
 
     total_rounds = config['server']['num_rounds']
@@ -968,7 +969,7 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
     else:
         weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
     
-    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    aug_transformer = get_gpu_augmentation(config['dataset']['data_name'], NORMALIZE_DICT[config['dataset']['data_name']], device)
 
     clients_sample_per_class = []
 

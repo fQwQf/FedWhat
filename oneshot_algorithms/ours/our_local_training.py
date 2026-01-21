@@ -64,12 +64,14 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
     for e in range(start_epoch, start_epoch + local_epochs):
         total_loss = 0
         for batch_idx, (data, target) in enumerate(training_data):
+            # Move data to GPU FIRST (critical for GPU augmentation)
+            data, target = data.to(device), target.to(device)
             
-            
-            aug_data1, aug_data2 = aug_transformer(data), aug_transformer(data)
+            # Apply GPU augmentation (now on device)
+            aug_data1 = aug_transformer(data)
+            aug_data2 = aug_transformer(data)
             aug_data = torch.cat([aug_data1, aug_data2], dim=0)
             
-            aug_data, target = aug_data.to(device), target.to(device)
             bsz = target.shape[0]
 
             optimizer.zero_grad()
@@ -194,10 +196,20 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
 
             total_loss += loss.item()
 
-        train_test_acc = test_acc(copy.deepcopy(model), test_dataloader, device, mode='etf')
-        train_set_acc = test_acc(copy.deepcopy(model), training_data, device, mode='etf')
 
-        logger.info(f'Epoch {e} loss: {total_loss}; train accuracy: {train_set_acc}; test accuracy: {train_test_acc}')
+        # Optimize testing: only test every 5 epochs to reduce CPU overhead
+        if e % 5 == 0:
+            with torch.no_grad():
+                train_test_acc = test_acc(model, test_dataloader, device, mode='etf')
+                train_set_acc = test_acc(model, training_data, device, mode='etf')
+        else:
+            # Skip expensive testing for intermediate epochs
+            train_test_acc, train_set_acc = 0.0, 0.0
+
+        if train_test_acc > 0 or train_set_acc > 0:  # Only log when we have actual values
+            logger.info(f'Epoch {e} loss: {total_loss}; train accuracy: {train_set_acc}; test accuracy: {train_test_acc}')
+        else:
+            logger.info(f'Epoch {e} loss: {total_loss}')
 
         if e % save_freq == 0:
             save_best_local_model(client_model_dir, model, f'epoch_{e}.pth')
