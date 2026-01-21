@@ -232,7 +232,8 @@ class Proto_Classifier(nn.Module):
         one = torch.ones(num_classes, num_classes)
         M = np.sqrt(num_classes / (num_classes-1)) * torch.matmul(P, I-((1/num_classes) * one))
 
-        self.proto = M
+        # Register as buffer so it moves to the correct device with the model
+        self.register_buffer('proto', M)
 
     def generate_random_orthogonal_matrix(self, feat_in, num_classes):
         a = np.random.random(size=(feat_in, num_classes))
