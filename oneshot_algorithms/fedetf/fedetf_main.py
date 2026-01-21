@@ -58,14 +58,25 @@ def generate_sample_per_class(num_classes, local_data):
 
 def OneshotFedETF(trainset, test_loader, client_idx_map, config, device):
     logger.info('OneshotFedETF')
+    
+    # Debug: Check if model creation works
+    logger.info('Creating global model...')
+    import sys
+    sys.stdout.flush()
+    
     # get the global model
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
         mode='etf'
     )
+    logger.info('Model created, moving to device...')
+    sys.stdout.flush()
 
     global_model.to(device)
+    logger.info('Model moved to device successfully')
+    sys.stdout.flush()
+    
     global_model.train()
 
     method_results = defaultdict(list)

@@ -230,10 +230,11 @@ class Proto_Classifier(nn.Module):
         P = self.generate_random_orthogonal_matrix(feat_in, num_classes)
         I = torch.eye(num_classes)
         one = torch.ones(num_classes, num_classes)
-        M = np.sqrt(num_classes / (num_classes-1)) * torch.matmul(P, I-((1/num_classes) * one))
+        scale = float(np.sqrt(num_classes / (num_classes-1)))
+        M = scale * torch.matmul(P, I-((1/num_classes) * one))
 
         # Register as buffer so it moves to the correct device with the model
-        self.register_buffer('proto', M)
+        self.register_buffer('proto', M.float())
 
     def generate_random_orthogonal_matrix(self, feat_in, num_classes):
         a = np.random.random(size=(feat_in, num_classes))
@@ -243,7 +244,8 @@ class Proto_Classifier(nn.Module):
         return P
 
     def load_proto(self, proto):
-        self.proto = copy.deepcopy(proto)
+        # Use copy_ to properly update the registered buffer in-place
+        self.proto.copy_(proto)
 
     def forward(self, label):
         # produce the prototypes w.r.t. the labels
