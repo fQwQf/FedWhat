@@ -266,7 +266,10 @@ class NormalizeInverse(torchvision.transforms.Normalize):
 def convert_tensor_rgb(input_tensor, mean, std):
     img = NormalizeInverse(mean=mean, std=std)(input_tensor)
     # img = input_tensor
-    img = np.array(img)
+    if isinstance(img, torch.Tensor):
+        img = img.cpu().detach().numpy()
+    else:
+        img = np.array(img)
     # img = img / 2 + 0.5
     img = np.transpose(img, (0, 2, 3, 1))
     img = np.uint8(img * 255)

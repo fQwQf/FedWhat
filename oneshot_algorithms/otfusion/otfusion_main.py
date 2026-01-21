@@ -40,11 +40,12 @@ def OTFusion(trainset, test_loader, client_idx_map, config, device):
 
 
     # visualization
-    supervised_transformer = get_supervised_transform(config['dataset']['data_name'])
+    # supervised_transformer = get_supervised_transform(config['dataset']['data_name'])
     vis_loader = torch.utils.data.DataLoader(copy.deepcopy(test_loader.dataset), config['visualization']['vis_size'], shuffle=False)
     vis_iter = iter(vis_loader)
     vis_data, vis_label = next(vis_iter)
-    vis_data = supervised_transformer(vis_data)
+    # vis_data = supervised_transformer(vis_data)
+    vis_data = vis_data.to(device)
     vis_folder = config['visualization']['save_path'] +"/otfusion/"
 
     for cr in trange(config['server']['num_rounds']):
@@ -75,9 +76,15 @@ def OTFusion(trainset, test_loader, client_idx_map, config, device):
             local_models[c] = local_model_c
             logger.info(f"Client {c} Finish Local Training--------|")
 
-            visualize_pic(local_model_c, vis_data, target_layers=[local_model_c.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
-                
-            logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/local_model_{c}.png")
+            if cr % config['visualization']['interval'] == 0:
+                try:
+                    logger.info(f"Starting visualization for client {c}")
+                    visualize_pic(local_model_c, vis_data, target_layers=[local_model_c.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
+                    logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/local_model_{c}.png")
+                except Exception as e:
+                    logger.warning(f"Visualization failed for client {c}: {e}")
+                    import traceback
+                    traceback.print_exc()
         logger.info(f"Round {cr} Finish--------|")
         model_var_m, model_var_s = compute_local_model_variance(local_models)
         logger.info(f"Model variance: mean: {model_var_m}, sum: {model_var_s}")
