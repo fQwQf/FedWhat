@@ -7,6 +7,8 @@ from PIL import Image
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam import GuidedBackpropReLUModel
 import cv2
+cv2.setNumThreads(0)
+cv2.ocl.setUseOpenCL(False)
 
 
 def save_perf_records(save_path, save_file_name, data_dict, save_mode='w'):
@@ -296,7 +298,7 @@ def visualize_pic(model, images, target_layers, dataset_name, save_file_name, ta
     
         
     with GradCAM(model=model, target_layers=target_layers) as cam:
-        grayscale_cam = cam(input_tensor=images, targets=targets, aug_smooth=True, eigen_smooth=True)
+        grayscale_cam = cam(input_tensor=images, targets=targets, aug_smooth=False, eigen_smooth=False)
         # grayscale_cam = grayscale_cam[0, :]
         
         gb_model = GuidedBackpropReLUModel(model=model, device=device)
