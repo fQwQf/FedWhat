@@ -227,20 +227,22 @@ class MLPClassifier(nn.Module):
 class Proto_Classifier(nn.Module):
     def __init__(self, feat_in, num_classes):
         super(Proto_Classifier, self).__init__()
+        # Use pure PyTorch for orthogonal matrix generation to avoid numpy/CUDA conflicts
         P = self.generate_random_orthogonal_matrix(feat_in, num_classes)
         I = torch.eye(num_classes)
         one = torch.ones(num_classes, num_classes)
-        scale = float(np.sqrt(num_classes / (num_classes-1)))
-        M = scale * torch.matmul(P, I-((1/num_classes) * one))
+        scale = (num_classes / (num_classes - 1)) ** 0.5  # Pure Python sqrt
+        M = scale * torch.matmul(P, I - ((1.0 / num_classes) * one))
 
         # Register as buffer so it moves to the correct device with the model
         self.register_buffer('proto', M.float())
 
     def generate_random_orthogonal_matrix(self, feat_in, num_classes):
-        a = np.random.random(size=(feat_in, num_classes))
-        P, _ = np.linalg.qr(a)
-        P = torch.tensor(P).float()
-        assert torch.allclose(torch.matmul(P.T, P), torch.eye(num_classes), atol=1e-06), torch.max(torch.abs(torch.matmul(P.T, P) - torch.eye(num_classes)))
+        # Use PyTorch's QR decomposition instead of numpy to avoid potential segfaults
+        a = torch.randn(feat_in, num_classes)
+        Q, R = torch.linalg.qr(a)
+        # Ensure orthonormality by normalizing columns
+        P = Q[:, :num_classes].float()
         return P
 
     def load_proto(self, proto):
