@@ -1706,8 +1706,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
                 # 新增的开关，用于激活V12的内部退火逻辑
                 use_dynamic_task_attenuation=True,
                 gamma_reg = gamma_reg,
-                lambda_max = lambda_max,
-                lambda_max_threshold = True
+                lambda_max = lambda_max
             )
             
             local_models[c] = local_model_c

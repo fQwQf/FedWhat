@@ -128,10 +128,11 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
                     schedule_factor = max(0.0, schedule_factor)
 
-                    # 稳定正则: ReLU-hinge 形式 L_reg = γ·ReLU(λ_eff - λ_max)²
+                    # 稳定正则: ReLU-hinge 形式 L_reg = γ·ReLU(λ_eff - λ_max)
                     # 注意：这里用非detach的λ_eff，让梯度可以流向σ参数
+                    # Modified to use Linear ReLU to match User's V14 logic, replacing the duplicate block.
                     lambda_eff_for_reg = sigma_sq_local / sigma_sq_align
-                    stability_reg = gamma_reg * torch.relu(lambda_eff_for_reg - lambda_max) ** 2
+                    stability_reg = gamma_reg * torch.relu(lambda_eff_for_reg - lambda_max)
 
                     # 修正版: schedule_factor 放在 log 正则项上，而非数据项
                     # 这保证 s(p)->0 时, log正则项消失, σ²_align->∞, λ_eff->0
