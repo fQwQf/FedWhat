@@ -131,9 +131,10 @@ def OneshotFedETF(trainset, test_loader, client_idx_map, config, device):
 
             logger.info(f"Client {c} Finish Local Training--------|")
 
-            visualize_pic(local_model_c.encoder, vis_data, target_layers=[local_model_c.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
-                
-            logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/local_model_{c}.png")
+            # DISABLED: GradCAM visualization causes segfaults on this system
+            # To re-enable, uncomment the lines below
+            # visualize_pic(local_model_c.encoder, vis_data, target_layers=[local_model_c.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
+            # logger.info(f"Visualization of Local model at {save_path}/{vis_folder}/local_model_{c}.png")
 
 
 
@@ -152,9 +153,9 @@ def OneshotFedETF(trainset, test_loader, client_idx_map, config, device):
         logger.info(f"The test accuracy of {method_name}: {acc}")
         method_results[method_name].append(acc)
 
-        visualize_pic(aggregated_model.encoder, vis_data, target_layers=[aggregated_model.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/global_model.png', device=device)
-            
-        logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/global_model.png")
+        # DISABLED: GradCAM visualization causes segfaults on this system
+        # visualize_pic(aggregated_model.encoder, vis_data, target_layers=[aggregated_model.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/global_model.png', device=device)
+        # logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/global_model.png")
 
 
         method_name = 'OneshotFedETF+Ensemble'
