@@ -181,9 +181,9 @@ def OneshotFedProto(trainset, test_loader, client_idx_map, config, device):
             local_protos.append(local_proto_c)
             logger.info(f"Client {c} Collecting Local Prototypes--------|")
 
-            visualize_pic(local_model_c.encoder, vis_data, target_layers=[local_model_c.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
+            # visualize_pic(local_model_c.encoder, vis_data, target_layers=[local_model_c.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/local_model_{c}.png', device=device)
                 
-            logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/local_model_{c}.png")
+            # logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/local_model_{c}.png")
 
 
 
@@ -202,8 +202,8 @@ def OneshotFedProto(trainset, test_loader, client_idx_map, config, device):
         logger.info(f"The test accuracy of {method_name}: {acc}")
         method_results[method_name].append(acc)
 
-        visualize_pic(aggregated_model.encoder, vis_data, target_layers=[aggregated_model.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/global_model.png', device=device)         
-        logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/global_model.png")
+        # visualize_pic(aggregated_model.encoder, vis_data, target_layers=[aggregated_model.encoder.layer4], dataset_name=config['dataset']['data_name'], save_file_name=f'{save_path}/{vis_folder}/global_model.png', device=device)         
+        # logger.info(f"Visualization of Global model at {save_path}/{vis_folder}/global_model.png")
 
         # proto eval
         global_proto = protos_cluster(local_protos)
