@@ -138,6 +138,9 @@ def build_dataset_idxs(dataset, dataset_name):
         idx_dict = {}
         for idx, data in enumerate(tqdm(dataset, desc=f'Preprocessing data, Build dataset index dict')):
             _, label = data
+            if hasattr(label, 'item'):
+                label = label.item()
+            
             if label in idx_dict:
                 idx_dict[label].append(idx)
             else:
