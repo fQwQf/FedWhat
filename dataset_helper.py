@@ -116,9 +116,11 @@ def load_dataset(dataset_name, data_path, normalize=True):
             transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
         transform = transforms.Compose(transform)
 
+        target_transform = transforms.Lambda(lambda y: torch.tensor(y).long().squeeze())
+
         os.makedirs(data_path, exist_ok=True)
-        train_dataset = PathMNIST(root=data_path, split='train', download=True, transform=transform)
-        test_dataset = PathMNIST(root=data_path, split='test', download=True, transform=transform)
+        train_dataset = PathMNIST(root=data_path, split='train', download=True, transform=transform, target_transform=target_transform)
+        test_dataset = PathMNIST(root=data_path, split='test', download=True, transform=transform, target_transform=target_transform)
 
 
     else:
