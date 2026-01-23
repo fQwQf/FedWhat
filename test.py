@@ -17,7 +17,8 @@ setup_seed(config['seed'])
 
 
 # Determine if we should normalize on CPU (for standard algos) or GPU (for Ours)
-normalize_on_cpu = not config_args.algo.startswith('Ours')
+normalize_train = not (config_args.algo.startswith('Ours') or config_args.algo in ['FAFIFedAvg', 'AURORAFedAvg'])
+normalize_test = True
 
 trainset, testset, client_idx_map = get_fl_dataset(
     config["dataset"]["data_name"], 
@@ -26,7 +27,8 @@ trainset, testset, client_idx_map = get_fl_dataset(
     config['distribution']['type'], 
     config['distribution']['label_num_per_client'], 
     config['distribution']['alpha'],
-    normalize=normalize_on_cpu)
+    normalize_train=normalize_train,
+    normalize_test=normalize_test)
 
 test_loader = torch.utils.data.DataLoader(testset, batch_size=config['dataset']['test_batch_size'], shuffle=True)
 
