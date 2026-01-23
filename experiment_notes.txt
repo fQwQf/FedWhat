@@ -1,0 +1,10 @@
+
+# 2026-01-23 Experiment: GradNorm vs DWA vs AURORA
+
+# 1. Run GradNorm
+# python our_main.py --algo OursV7 --cfp configs/experiment_gradnorm.yaml --lambda_scheduler gradnorm
+
+# 2. Run DWA
+# python our_main.py --algo OursV7 --cfp configs/experiment_dwa.yaml --lambda_scheduler dwa
+
+# 3. (Optional) Run Standard AURORA as baseline if needed, or use existing logs.

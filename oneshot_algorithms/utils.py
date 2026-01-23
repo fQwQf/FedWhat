@@ -1,14 +1,21 @@
 from common_libs import *
 
 from dataset_helper import NORMALIZE_DICT
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image, deprocess_image
-from PIL import Image
-from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam import GuidedBackpropReLUModel
-import cv2
-cv2.setNumThreads(0)
-cv2.ocl.setUseOpenCL(False)
+try:
+    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+    from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image, deprocess_image
+    from PIL import Image
+    from pytorch_grad_cam import GradCAM
+    from pytorch_grad_cam import GuidedBackpropReLUModel
+    import cv2
+    cv2.setNumThreads(0)
+    cv2.ocl.setUseOpenCL(False)
+except ImportError:
+    GradCAM = None
+    ClassifierOutputTarget = None
+    show_cam_on_image = None
+    cv2 = None
+    Image = None
 
 
 def save_perf_records(save_path, save_file_name, data_dict, save_mode='w'):
@@ -283,6 +290,11 @@ def visualize_pic(model, images, target_layers, dataset_name, save_file_name, ta
     # check the file folder
     if not os.path.exists(os.path.dirname(save_file_name)):
         os.makedirs(os.path.dirname(save_file_name), exist_ok=True)
+
+    # check if GradCAM is available
+    if GradCAM is None:
+        logger.warning("pytorch_grad_cam or cv2 not installed, skipping visualization.")
+        return
 
     # convert image to rgb_image, 
     rgb_images = convert_tensor_rgb(images, **NORMALIZE_DICT[dataset_name])

@@ -9,6 +9,7 @@ def args_parser():
     parser.add_argument('--annealing_strategy', type=str, default='none', help='Select the annealing strategy for the alignment loss weight (lambda).')
     parser.add_argument('--gamma_reg', type=float, default=1e-5, help='Regularization factor for the alignment loss weight sigma_sq_align in V12.')
     parser.add_argument('--lambda_max', type=float, default=50.0, help='Maximum threshold for effective lambda in stability regularization (OursV13).')
+    parser.add_argument('--lambda_scheduler', type=str, default='none', choices=['none', 'gradnorm', 'dwa'], help='Scheduler for lambda (GradNorm/DWA). Overrides internal annealing if set.')
 
     args = parser.parse_args()
 
