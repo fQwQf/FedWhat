@@ -333,9 +333,9 @@ class BottleneckProtoResNet(nn.Module):
         # Optional Projector
         if projector_dim:
             self.projector = nn.Sequential(
-                nn.Linear(feature_dim, feature_dim), # MLP layer 1
+                nn.Linear(feature_dim, projector_dim), # MLP layer 1 (Expand immediately)
                 nn.ReLU(inplace=True),
-                nn.Linear(feature_dim, projector_dim) # MLP layer 2
+                nn.Linear(projector_dim, projector_dim) # MLP layer 2
             )
             self.final_dim = projector_dim
         else:

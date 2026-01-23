@@ -161,17 +161,17 @@ if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device: {device}")
     
-    # Condition 1: Direct Alignment on Bottleneck (d=64)
-    # This violates d >= C-1 (64 < 99). Expect poor performance or inability to converge to ETF.
-    acc_1 = run_condition("1. Bottleneck d=64 (No Projector)", feature_dim=64, projector_dim=None, device=device)
+    # Condition 1: Direct Alignment on Bottleneck (d=32)
+    # This violates d >= C-1 (32 << 99). Expect SEVERE FAILUE.
+    acc_1 = run_condition("1. Bottleneck d=32 (No Projector)", feature_dim=32, projector_dim=None, device=device, epochs=50)
     
-    # Condition 2: Projector (d=64 -> 128)
-    # The bottleneck is still 64 (carrying info), but we align in 128 (where ETF is valid).
-    acc_2 = run_condition("2. Bottleneck d=64 + Projector -> 128", feature_dim=64, projector_dim=128, device=device)
+    # Condition 2: Projector (d=32 -> 128)
+    # The bottleneck is 32 (carrying info), but we align in 128 (where ETF is valid).
+    acc_2 = run_condition("2. Bottleneck d=32 + Projector -> 128", feature_dim=32, projector_dim=128, device=device, epochs=50)
     
     print("\n" + "="*40)
     print("FINAL RESULTS SUMMARY")
     print("="*40)
-    print(f"Condition 1 (d=64, Violates ETF): {acc_1:.4f}")
-    print(f"Condition 2 (d=64->128, Valid ETF): {acc_2:.4f}")
+    print(f"Condition 1 (d=32, Violates ETF): {acc_1:.4f}")
+    print(f"Condition 2 (d=32->128, Valid ETF): {acc_2:.4f}")
     print(f"Improvement: {(acc_2 - acc_1)*100:.2f}%")
