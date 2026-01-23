@@ -1831,7 +1831,6 @@ def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lam
                 use_drcl=True,
                 fixed_anchors=fixed_anchors,
                 lambda_align=lambda_align_initial,
-                scheduler_name=config.get('lambda_scheduler', 'none')
             )
             
             local_models[c] = local_model_c
