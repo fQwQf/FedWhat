@@ -1,9 +1,6 @@
 from oneshot_algorithms.utils import test_acc
 from torch.nn.utils import parameters_to_vector, vector_to_parameters
-try:
-    import ot
-except ImportError:
-    ot = None
+import ot
 from common_libs import *
 
 

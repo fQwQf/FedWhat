@@ -7,10 +7,7 @@ import torch
 import numpy as np
 import random
 import copy
-try:
-    from visdom import Visdom
-except ImportError:
-    Visdom = None
+from visdom import Visdom
 import csv
 from torch.optim.optimizer import Optimizer
 import torchvision

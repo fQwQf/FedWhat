@@ -95,6 +95,10 @@ elif config_args.algo == 'OursV4SIMPLE':
     OneshotOurs(trainset, test_loader, client_idx_map, config, device, server_strategy='true_simple_output')
 elif config_args.algo == 'OursV7SIMPLE':
     OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_strategy='true_simple_output')
+elif config_args.algo == 'FAFIFedAvg':
+    OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lambda_val=config_args.lambdaval)
+elif config_args.algo == 'AURORAFedAvg':
+    OneshotAURORAFedAvg(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
 else:
     raise NotImplementedError(f"Algorithm {config_args.algo} is not implemented.")   
 

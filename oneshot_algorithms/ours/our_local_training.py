@@ -1,13 +1,11 @@
 from oneshot_algorithms.utils import init_optimizer, init_loss_fn, test_acc, save_best_local_model
-from oneshot_algorithms.utils import init_optimizer, init_loss_fn, test_acc, save_best_local_model
 from oneshot_algorithms.ours.unsupervised_loss import SupConLoss, Contrastive_proto_feature_loss, Contrastive_proto_loss
-from oneshot_algorithms.ours.scheduler_baselines import GradNormScheduler, DWAScheduler
 
 from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0, scheduler_name='none'):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0):
    
     model.train()
     model.to(device)
@@ -58,19 +56,6 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
     # 如果使用DRCL，定义对齐损失函数
     if use_drcl or use_progressive_alignment:
         alignment_loss_fn = torch.nn.MSELoss()
-
-    # --- Scheduler Initialization ---
-    gradnorm_scheduler = None
-    dwa_scheduler = None
-    current_weights = torch.ones(2, device=device) # [weight_base, weight_align]
-
-    if scheduler_name == 'gradnorm':
-        # GradNorm tracks 2 tasks: [Base Loss, Alignment Loss]
-        gradnorm_scheduler = GradNormScheduler(device=device, num_tasks=2, alpha=1.5)
-        logger.info("Initialized GradNorm Scheduler")
-    elif scheduler_name == 'dwa':
-        dwa_scheduler = DWAScheduler(num_tasks=2, temp=2.0, device=device)
-        logger.info("Initialized DWA Scheduler")
 
     initial_lambda = lambda_align
 
@@ -181,46 +166,10 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
 
                 
             elif use_drcl: # 兼容 V7, V8, V9
-                
-                if scheduler_name == 'gradnorm':
-                    # GradNorm Logic:
-                    # 1. Calculate losses (forward passed already)
-                    # 2. Call scheduler step which computes adaptive weights and updates them
-                    # For GradNorm we need the "last shared layer". 
-                    # In ResNet, 'encoder' output is before avgpool/fc. 
-                    # But the 'feature' used for protos is usually the output of encoder.
-                    # The 'model' has 'encoder' and 'learnable_proto'.
-                    # The shared part is the 'encoder'. The last shared weights would be the last layer of encoder.
-                    # For ResNet18, it's model.encoder.layer4[-1].conv2.weight ? 
-                    # Or better, just use model.encoder.layer4 parameters.
-                    
-                    # We need to compute gradients w.r.t shared weights for GradNorm.
-                    # This is heavy.
-                    
-                    # Let's target the last block of the encoder.
-                    if hasattr(model.encoder, 'layer4'):
-                        shared_weights = list(model.encoder.layer4.parameters())[-1] # Only last weight tensor
-                    else:
-                        # Fallback for other architectures, pick the last parameter of encoder
-                        shared_weights = list(model.encoder.parameters())[-1]
-
-                    loss_list = [base_loss, align_loss]
-                    
-                    # GradNorm Step
-                    new_weights = gradnorm_scheduler.step(loss_list, shared_weights)
-                    
-                    # Apply weights
-                    loss = new_weights[0] * base_loss + new_weights[1] * align_loss
-                    
-                elif scheduler_name == 'dwa':
-                    # DWA simply applies the weights calculated from previous epoch
-                    loss = current_weights[0] * base_loss + current_weights[1] * align_loss
-                
-                else:
-                    # 固定的或自适应的lambda + 全局退火
-                    global_progress = e / total_training_steps
-                    lambda_annealed = lambda_align * (1 - global_progress)
-                    loss = base_loss + lambda_annealed * align_loss
+                # 固定的或自适应的lambda + 全局退火
+                global_progress = e / total_training_steps
+                lambda_annealed = lambda_align * (1 - global_progress)
+                loss = base_loss + lambda_annealed * align_loss
             else: # 兼容 V4
                 loss = base_loss
 
