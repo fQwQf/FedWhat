@@ -16,6 +16,25 @@ from oneshot_algorithms.fedavg import parameter_averaging
 from oneshot_algorithms.utils import test_acc
 
 
+
+def test_acc_our_model(model, test_loader, device):
+    model.eval()
+    model.to(device)
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            if isinstance(output, tuple):
+                logits = output[0]
+            else:
+                logits = output
+            _, predicted = torch.max(logits, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+    return correct / total
+
 def calculate_adaptive_lambda(client_dataloader, num_classes, lambda_min, lambda_max, device):
     """Calculates a client-specific lambda based on the entropy of its local data distribution."""
     counts = torch.zeros(num_classes, device=device)
@@ -1842,7 +1861,7 @@ def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lam
         # FedAvg Aggregation Logic
         method_name = 'FAFIFedAvg'
         aggregated_model = parameter_averaging(local_models, weights)
-        acc = test_acc(aggregated_model, test_loader, device)
+        acc = test_acc_our_model(aggregated_model, test_loader, device)
         logger.info(f"The test accuracy of {method_name}: {acc}")
         method_results[method_name].append(acc)
         
@@ -1958,7 +1977,7 @@ def OneshotAURORAFedAvg(trainset, test_loader, client_idx_map, config, device, g
         # FedAvg Aggregation Logic
         method_name = 'AURORAFedAvg'
         aggregated_model = parameter_averaging(local_models, weights)
-        acc = test_acc(aggregated_model, test_loader, device)
+        acc = test_acc_our_model(aggregated_model, test_loader, device)
         logger.info(f"The test accuracy of {method_name}: {acc}")
         method_results[method_name].append(acc)
         
