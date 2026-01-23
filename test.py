@@ -101,6 +101,14 @@ elif config_args.algo == 'FAFIFedAvg':
     OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lambda_val=config_args.lambdaval)
 elif config_args.algo == 'AURORAFedAvg':
     OneshotAURORAFedAvg(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
+elif config_args.algo == 'OursV15':
+    OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
+elif config_args.algo == 'OursV15FedAvg':
+    # Since OursV15 implementation already does FedAvg at the end if we just run it, 
+    # we can point to the same function or if I want to strictly only run FedAvg there should be a separate function.
+    # But based on my implementation, OursV15 does the full training + FedAvg.
+    # If the user specifically asks for V15FedAvg, it implies the same.
+    OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
 else:
     raise NotImplementedError(f"Algorithm {config_args.algo} is not implemented.")   
 

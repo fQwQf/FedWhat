@@ -21,7 +21,10 @@ def get_train_models(model_name, num_classes, mode, **kwargs):
             model = LearnableProtoMobileNet(model_name, num_classes=num_classes)
         else:
             model = LearnableProtoResNet(model_name, num_classes=num_classes)
-
+        return model
+    elif mode == 'our_projector':
+        # New mode for V15
+        model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes)
         return model
     else:
         if 'mobilenetv2' in model_name:

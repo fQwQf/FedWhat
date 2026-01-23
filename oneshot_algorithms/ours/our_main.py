@@ -1985,3 +1985,137 @@ def OneshotAURORAFedAvg(trainset, test_loader, client_idx_map, config, device, g
         local_models = [copy.deepcopy(aggregated_model) for _ in range(config['client']['num_clients'])]
 
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
+
+
+def OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_reg, lambda_max=50.0, **kwargs):
+    logger.info('OneshotOursV15: AURORA (V14) with Projector Head (Addressing d >= C-1)')
+    
+    v10_cfg = config.get('v10_config', {})
+    
+    # CHANGE 1: Request the model with 'our_projector' mode to get LearnableProtoResNetWithProjector
+    global_model = get_train_models(
+        model_name=config['server']['model_name'],
+        num_classes=config['dataset']['num_classes'],
+        mode='our_projector' 
+    )
+    
+    feature_dim = global_model.learnable_proto.shape[1]
+    num_classes = config['dataset']['num_classes']
+    etf_anchors = generate_etf_anchors(num_classes, feature_dim, device)
+    
+    logger.info(f"Initialized V15 with Projector. Feature Dim for ETF Alignment: {feature_dim}")
+    
+    method_results = defaultdict(list)
+    save_path, local_model_dir = prepare_checkpoint_dir(config)
+    if not os.path.exists(save_path + "/config.yaml"):
+        save_yaml_config(save_path + "/config.yaml", config)
+    local_models = [copy.deepcopy(global_model) for _ in range(config['client']['num_clients'])]
+    local_data_size = [len(client_idx_map[c]) for c in range(config['client']['num_clients'])]
+    if config['server']['aggregated_by_datasize']:
+        weights = [i/sum(local_data_size) for i in local_data_size]
+    else:
+        weights = [1/config['client']['num_clients'] for _ in range(config['client']['num_clients'])]        
+    aug_transformer = get_supcon_transform(config['dataset']['data_name'])
+    clients_sample_per_class = []
+    
+    logger.info("--- Pre-heating V15 models with V9's adaptive lambda strategy ---")
+    for c in range(config['client']['num_clients']):
+        client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+        v9_cfg = config.get('v9_config', {})
+        initial_lambda = calculate_adaptive_lambda(
+            client_dataloader,
+            config['dataset']['num_classes'],
+            v9_cfg.get('lambda_min', 0.1),
+            v9_cfg.get('lambda_max', 15.0),
+            device
+        )
+        logger.info(f"Client {c}: Calculated initial lambda = {initial_lambda:.4f}")
+        initial_log_lambda = torch.tensor(initial_lambda, device=device).log()
+        local_models[c].log_sigma_sq_local = torch.nn.Parameter(initial_log_lambda)
+        local_models[c].log_sigma_sq_align = torch.nn.Parameter(torch.tensor(0.0, device=device))
+    logger.info("--- V15 model pre-heating complete. ---")
+
+    logger.info(f"Gamma for stability anchor regularization: {gamma_reg}")
+    sigma_lr_val = v10_cfg.get('sigma_lr', 0.005)
+    total_rounds = config['server']['num_rounds']
+
+    for cr in trange(total_rounds):
+        logger.info(f"Round {cr} starts--------|")
+        local_protos = []
+        
+        for c in range(config['client']['num_clients']):
+            logger.info(f"Client {c} Starts Local Trainning--------|")
+            client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
+
+            if cr == 0:
+                clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
+
+            local_model_c = ours_local_training(
+                model=copy.deepcopy(local_models[c]),
+                training_data=client_dataloader,
+                test_dataloader=test_loader,
+                start_epoch=cr * config['server']['local_epochs'],
+                local_epochs=config['server']['local_epochs'],
+                optim_name=config['server']['optimizer'],
+                lr=config['server']['lr'],
+                momentum=config['server']['momentum'],
+                loss_name=config['server']['loss_name'],
+                device=device,
+                num_classes=config['dataset']['num_classes'],
+                sample_per_class=clients_sample_per_class[c],
+                aug_transformer=aug_transformer,
+                client_model_dir=local_model_dir + f"/client_{c}",
+                total_rounds=total_rounds,
+                use_drcl=True,
+                fixed_anchors=etf_anchors,
+                use_uncertainty_weighting=True,
+                sigma_lr=sigma_lr_val,
+                use_dynamic_task_attenuation=True,
+                gamma_reg = gamma_reg,
+                lambda_max = lambda_max
+            )
+            
+            local_models[c] = local_model_c
+            local_protos.append(local_model_c.get_proto().detach())
+
+            log_sigma_sq_local_val = local_model_c.log_sigma_sq_local.item()
+            log_sigma_sq_align_val = local_model_c.log_sigma_sq_align.item()
+            raw_lambda = math.exp(log_sigma_sq_local_val - log_sigma_sq_align_val)
+            
+            end_epoch_of_this_round = (cr + 1) * config['server']['local_epochs']
+            total_training_epochs = config['server']['num_rounds'] * config['server']['local_epochs']
+            global_progress = end_epoch_of_this_round / total_training_epochs
+            s_p_value = max(0.0, 1.0 - global_progress)
+            truly_effective_lambda = raw_lambda * s_p_value
+
+            log_message = (
+                f"Client {c} Post-Training State -> "
+                f"Raw λ: {raw_lambda:9.4f} "
+                f"| s(p): {s_p_value:.3f} "
+                f"| Truly Effective λ (for W): {truly_effective_lambda:9.4f}"
+            )
+            logger.info(log_message)
+
+        logger.info(f"Round {cr} Finish--------|")
+        
+        
+        # --- IFFI / Ensemble Aggregation Logic (Matches AURORA/V14) ---
+        method_name = 'OursV15+SimpleFeatureServer'
+        ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
+        # Note: global_proto is aggregated from local prototypes
+        global_proto = aggregate_local_protos(local_protos)
+        ens_acc = eval_with_proto(ensemble_model, test_loader, device, global_proto)
+        logger.info(f"The test accuracy of {method_name}: {ens_acc}")
+        method_results[method_name].append(ens_acc)
+        save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
+
+        # FedAvg Aggregation Logic
+        method_name = 'OursV15FedAvg'
+        aggregated_model = parameter_averaging(local_models, weights)
+        acc = test_acc_our_model(aggregated_model, test_loader, device)
+        logger.info(f"The test accuracy of {method_name}: {acc}")
+        method_results[method_name].append(acc)
+        
+        local_models = [copy.deepcopy(aggregated_model) for _ in range(config['client']['num_clients'])]
+
+        save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)

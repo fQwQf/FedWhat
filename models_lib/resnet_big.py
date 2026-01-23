@@ -310,6 +310,48 @@ class LearnableProtoResNet(nn.Module):
         else:
             return self.learnable_proto
 
+class LearnableProtoResNetWithProjector(nn.Module):
+    """
+    Backbone + MLP Projector + Classifier/Proto.
+    This resolves the d >= C-1 limitation by projecting features to a higher dimension
+    before ETF alignment.
+    """
+    def __init__(self, name='resnet50', num_classes=10, projector_dim=2048):
+        super(LearnableProtoResNetWithProjector, self).__init__()
+        model_fun, dim_in = model_dict[name]
+        self.encoder = model_fun()
+        
+        # MLP Projector: dim_in -> projector_dim -> projector_dim
+        # Example for ResNet18: 512 -> 2048 -> 2048
+        self.projector = nn.Sequential(
+            nn.Linear(dim_in, projector_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(projector_dim, projector_dim)
+        )
+        
+        # The learnable prototype (and alignment target) now lives in the projected space
+        self.learnable_proto = torch.nn.Parameter(torch.randn(num_classes, projector_dim))
+
+    def forward(self, x):
+        feat = self.encoder(x) # (B, 512)
+        projected = self.projector(feat) # (B, 2048)
+        
+        # Normalize the projected feature for ETF alignment
+        feature_norm = torch.nn.functional.normalize(projected, p=2, dim=1, eps=1e-12) # (B, 2048)
+        
+        # Logits are computed in the high-dimensional projected space
+        logits = torch.matmul(feature_norm, self.learnable_proto.t()) # (B, 2048) * (2048, C) -> (B, C)
+
+        return logits, feature_norm
+
+    def get_proto(self, weight=None):
+        if weight is not None:
+            assert len(weight.shape) == 1 and weight.shape[0] == self.learnable_proto.shape[0]
+            exec_device = self.learnable_proto.device
+            return weight.view(-1, 1).to(exec_device) * self.learnable_proto
+        else:
+            return self.learnable_proto
+
 
 
 

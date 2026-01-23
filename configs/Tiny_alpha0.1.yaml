@@ -25,11 +25,11 @@ client:
 server:
   num_rounds: 30
   frac_clients: 1.0
-  lr: 0.0001
+  lr: 0.05
   local_epochs: 5
   optimizer: "sgd" # choice: [sgd, adam]
   momentum: 0.9
-  weight_decay: 0.0001
+  weight_decay: 0.0005
   loss_name: "ce" # choice: [ce, mse, nll]
   model_name: "resnet18"
   aggregated_by_datasize: True
@@ -80,12 +80,12 @@ resume: True
 resume_best: False
 seed: 1
 
-lambda_align_initial: 20.0
+lambda_align_initial: 5.0
 
 v9_config:
   use_adaptive_lambda: true
   lambda_min: 0.1
-  lambda_max: 20.0
+  lambda_max: 7.0
 
   use_server_optimization: false
   server_lr: 0.001
