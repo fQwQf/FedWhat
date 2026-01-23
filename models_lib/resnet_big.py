@@ -315,3 +315,53 @@ class LearnableProtoResNet(nn.Module):
 
         
 
+
+class BottleneckProtoResNet(nn.Module):
+    """
+    Experimental model for ETF Bottleneck analysis.
+    Forces features into a low dimension (feature_dim) and then optionally projects back up (projector_dim).
+    """
+    def __init__(self, name='resnet50', num_classes=10, feature_dim=512, projector_dim=None):
+        super(BottleneckProtoResNet, self).__init__()
+        model_fun, dim_in = model_dict[name]
+        self.encoder = model_fun()
+        
+        # Bottleneck layer to force dimension d
+        # Note: dim_in is usually 512 for ResNet18
+        self.bottleneck = nn.Linear(dim_in, feature_dim)
+        
+        # Optional Projector
+        if projector_dim:
+            self.projector = nn.Sequential(
+                nn.Linear(feature_dim, feature_dim), # MLP layer 1
+                nn.ReLU(inplace=True),
+                nn.Linear(feature_dim, projector_dim) # MLP layer 2
+            )
+            self.final_dim = projector_dim
+        else:
+            self.projector = None
+            self.final_dim = feature_dim
+            
+        self.learnable_proto = torch.nn.Parameter(torch.randn(num_classes, self.final_dim))
+
+    def forward(self, x):
+        feat = self.encoder(x) # (B, 512)
+        feat = self.bottleneck(feat) # (B, feature_dim)
+        
+        if self.projector:
+            feat_final = self.projector(feat) # (B, projector_dim)
+        else:
+            feat_final = feat # (B, feature_dim)
+            
+        feature_norm = torch.nn.functional.normalize(feat_final, p=2, dim=1, eps=1e-12)
+        logits = torch.matmul(feature_norm, self.learnable_proto.t())
+        
+        return logits, feature_norm
+
+    def get_proto(self, weight=None):
+        if weight is not None:
+            assert len(weight.shape) == 1 and weight.shape[0] == self.learnable_proto.shape[0]
+            exec_device = self.learnable_proto.device
+            return weight.view(-1, 1).to(exec_device) * self.learnable_proto
+        else:
+            return self.learnable_proto

@@ -15,6 +15,7 @@ NORMALIZE_DICT = {
     'Tiny-ImageNet': dict(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
     'SVHN': dict(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)), 
     'EMNIST_digits': dict(mean=(0.5,), std=(0.5,)),
+    'PathMNIST': dict(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)),
 }
 
 def load_dataset(dataset_name, data_path, normalize=True):
@@ -101,6 +102,22 @@ def load_dataset(dataset_name, data_path, normalize=True):
 
         train_dataset = torchvision.datasets.EMNIST(root=data_path, split='digits', train=True, transform=transform, download=True)
         test_dataset = torchvision.datasets.EMNIST(root=data_path, split='digits', train=False, transform=transform, download=True)
+
+    elif dataset_name == 'PathMNIST':
+        try:
+            from medmnist import PathMNIST
+        except ImportError:
+            raise ImportError("Please install medmnist to use PathMNIST dataset: pip install medmnist")
+
+        transform = [
+            transforms.ToTensor(),
+        ]
+        if normalize:
+            transform.append(transforms.Normalize(**NORMALIZE_DICT[dataset_name]))
+        transform = transforms.Compose(transform)
+
+        train_dataset = PathMNIST(root=data_path, split='train', download=True, transform=transform)
+        test_dataset = PathMNIST(root=data_path, split='test', download=True, transform=transform)
 
 
     else:

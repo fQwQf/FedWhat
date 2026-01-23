@@ -19,7 +19,7 @@ class GPUSupConAugmentation(nn.Module):
         super(GPUSupConAugmentation, self).__init__()
         
         # Determine image size based on dataset
-        if dataset_name in ['CIFAR10', 'CIFAR100', 'SVHN']:
+        if dataset_name in ['CIFAR10', 'CIFAR100', 'SVHN', 'PathMNIST']:
             img_size = 32
         else:
             img_size = 64

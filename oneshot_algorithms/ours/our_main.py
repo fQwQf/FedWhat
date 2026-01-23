@@ -47,7 +47,7 @@ def calculate_adaptive_lambda(client_dataloader, num_classes, lambda_min, lambda
     return adaptive_lambda
 
 def get_supcon_transform(dataset_name):
-    if dataset_name == 'CIFAR10' or dataset_name == 'CIFAR100' or dataset_name == 'SVHN':
+    if dataset_name == 'CIFAR10' or dataset_name == 'CIFAR100' or dataset_name == 'SVHN' or dataset_name == 'PathMNIST':
         return torchvision.transforms.Compose([
             torchvision.transforms.RandomResizedCrop(size=32, scale=(0.2, 1.), antialias=False),
             torchvision.transforms.RandomHorizontalFlip(),
