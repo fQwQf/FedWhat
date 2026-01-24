@@ -1888,7 +1888,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
 
 
 def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lambda_val=0):
-    logger.info('OneshotFAFIFedAvg: OursV7 + FedAvg (Parameter Averaging)')
+    logger.info('OneshotFAFIFedAvg: OursV4 + FedAvg (Parameter Averaging)')
     
     global_model = get_train_models(
         model_name=config['server']['model_name'],
@@ -1898,10 +1898,11 @@ def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lam
     global_model.to(device)
     global_model.train()
 
-    feature_dim = global_model.learnable_proto.shape[1]
-    num_classes = config['dataset']['num_classes']
-    fixed_anchors = generate_etf_anchors(num_classes, feature_dim, device)
-    logger.info(f"Initialized ETF fixed anchors with shape: {fixed_anchors.shape}")
+    # V4 does not use ETF anchors
+    # feature_dim = global_model.learnable_proto.shape[1]
+    # num_classes = config['dataset']['num_classes']
+    # fixed_anchors = generate_etf_anchors(num_classes, feature_dim, device)
+    # logger.info(f"Initialized ETF fixed anchors with shape: {fixed_anchors.shape}")
 
     method_results = defaultdict(list)
     save_path, local_model_dir = prepare_checkpoint_dir(config)
@@ -1932,10 +1933,11 @@ def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lam
             if cr == 0:
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
 
-            if (lambda_val > 0):
-                lambda_align_initial = lambda_val
-            else:
-                lambda_align_initial = config.get('lambda_align_initial', 5.0)
+            # V4 does not use lambda_align
+            # if (lambda_val > 0):
+            #     lambda_align_initial = lambda_val
+            # else:
+            #     lambda_align_initial = config.get('lambda_align_initial', 5.0)
 
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
@@ -1954,9 +1956,7 @@ def OneshotFAFIFedAvg(trainset, test_loader, client_idx_map, config, device, lam
                 client_model_dir=local_model_dir + f"/client_{c}",
                 total_rounds=total_rounds,
                 save_freq=config['checkpoint']['save_freq'],
-                use_drcl=True,
-                fixed_anchors=fixed_anchors,
-                lambda_align=lambda_align_initial,
+                # Removed V7 params: use_drcl, fixed_anchors, lambda_align
             )
             
             local_models[c] = local_model_c
