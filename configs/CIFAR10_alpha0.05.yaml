@@ -23,10 +23,10 @@ client:
   num_clients: 5
 
 server:
-  num_rounds: 10
+  num_rounds: 250
   frac_clients: 1.0
   lr: 0.05
-  local_epochs: 5
+  local_epochs: 1
   optimizer: "sgd" # choice: [sgd, adam]
   momentum: 0.9
   weight_decay: 0.0001
