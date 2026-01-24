@@ -319,22 +319,26 @@ class LearnableProtoResNetWithProjector(nn.Module):
     def __init__(self, name='resnet50', num_classes=10, projector_dim=2048):
         super(LearnableProtoResNetWithProjector, self).__init__()
         model_fun, dim_in = model_dict[name]
-        self.encoder = model_fun()
+        backbone = model_fun()
         
         # MLP Projector: dim_in -> projector_dim -> projector_dim
         # Example for ResNet18: 512 -> 2048 -> 2048
-        self.projector = nn.Sequential(
+        projector = nn.Sequential(
             nn.Linear(dim_in, projector_dim),
             nn.ReLU(inplace=True),
             nn.Linear(projector_dim, projector_dim)
         )
         
+        # Combine backbone and projector into the "encoder" property
+        # so that external calls to model.encoder(x) get the projected features.
+        self.encoder = nn.Sequential(backbone, projector)
+        
         # The learnable prototype (and alignment target) now lives in the projected space
         self.learnable_proto = torch.nn.Parameter(torch.randn(num_classes, projector_dim))
 
     def forward(self, x):
-        feat = self.encoder(x) # (B, 512)
-        projected = self.projector(feat) # (B, 2048)
+        # Now self.encoder returns the projected features directly
+        projected = self.encoder(x) # (B, 2048)
         
         # Normalize the projected feature for ETF alignment
         feature_norm = torch.nn.functional.normalize(projected, p=2, dim=1, eps=1e-12) # (B, 2048)
