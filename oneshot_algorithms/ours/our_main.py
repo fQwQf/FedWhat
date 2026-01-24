@@ -735,10 +735,15 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
 def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_strategy='simple_feature',lambda_val=0):
     logger.info('OneshotOursV7 with DRCL (ETF Anchors) and Lambda Annealing')
     
+    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
+    if use_pretrain:
+        logger.info("[OneshotOursV7] Using Pretrained Weights for Backbone!")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain
     )
     global_model.to(device)
     global_model.train()
@@ -1109,10 +1114,15 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
 
 
     # 2. --- 标准初始化 ---
+    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
+    if use_pretrain:
+        logger.info("[OneshotOursV10] Using Pretrained Weights for Backbone!")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain
     )
 
     feature_dim = global_model.learnable_proto.shape[1]
@@ -1648,10 +1658,16 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
     
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
+    
+    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
+    if use_pretrain:
+        logger.info("[OneshotOursV14] Using Pretrained Weights for Backbone!")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain
     )
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
@@ -1993,10 +2009,15 @@ def OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_
     v10_cfg = config.get('v10_config', {})
     
     # CHANGE 1: Request the model with 'our_projector' mode to get LearnableProtoResNetWithProjector
+    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
+    if use_pretrain:
+        logger.info("[OneshotOursV15] Using Pretrained Weights for Backbone!")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our_projector' 
+        mode='our_projector',
+        use_pretrain=use_pretrain
     )
     
     feature_dim = global_model.learnable_proto.shape[1]
