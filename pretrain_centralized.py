@@ -79,19 +79,23 @@ def main():
 
     # Model setup
     model_name = config['server']['model_name']
-    print(f'Initializing {model_name} (Centralized)')
+    print(f'Initializing {model_name} (Centralized) using SupCEResNet wrapper')
     
-    # Use the definition from models_lib (which is adapted for small images if it's resnet_big)
-    # We directly inspect models_lib to check how to instantiate. 
-    # model_dict maps name to [class, dim]. We want the class.
-    model_fun, _ = model_dict[model_name]
-    model = model_fun() 
+    from models_lib.resnet_big import SupCEResNet
     
-    # Adjust last layer for num_classes
-    if model_name.startswith('resnet'):
-        # resnet_big.py ResNet has 'fc'
-        if hasattr(model, 'fc'):
-            model.fc = nn.Linear(model.fc.in_features, num_classes)
+    # We use SupCEResNet which encapsulates the backbone and adds a proper FC layer
+    model = SupCEResNet(model_name, num_classes=num_classes)
+    
+    # SupCEResNet definition in resnet_big.py:
+    # class SupCEResNet(nn.Module):
+    #     def __init__(self, name='resnet50', num_classes=10):
+    #         model_fun, dim_in = model_dict[name]
+    #         self.encoder = model_fun()
+    #         self.fc = nn.Linear(dim_in, num_classes)
+    #     def forward(self, x):
+    #         return self.fc(self.encoder(x))
+    
+    # This ensures we have a trainable classifier.
     
     model = model.to(device)
 

@@ -25,26 +25,32 @@ def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs
                 
             # If use_pretrain is a STRING, we treat it as a path to a checkpoint
             if isinstance(use_pretrain, str):
+                model = LearnableProtoResNet(model_name, num_classes=num_classes)
                 print(f"[get_train_models] Loading custom weights from {use_pretrain}")
                 state_dict = torch.load(use_pretrain, map_location='cpu')
-                # If loaded from our pretrain script, it might be the whole model state dict
-                # We need to filter out the final FC layer because LearnableProtoResNet handles classification differently (via proto)
-                # The keys in resnet_big.py are like 'conv1.weight', 'layer1...', 'fc...'
                 
-                model_state_dict = model.encoder.state_dict()
+                # Our pretrain_centralized.py uses SupCEResNet, which has structure:
+                #   self.encoder = ...
+                #   self.fc = ...
+                # So state_dict keys are 'encoder.conv1...', 'fc...', etc.
                 
-                # Check if state_dict keys match model.encoder keys (which are also 'conv1...', 'layer1...')
-                # Be careful: LearnableProtoResNet (in resnet_big.py) has self.encoder = model_fun() which IS the ResNet.
-                # So model.encoder IS the ResNet instance.
-                # Our saved checkpoint IS also the ResNet instance state_dict.
-                # So keys should match perfectly, except maybe 'fc'.
+                # LearnableProtoResNet has structure:
+                #   self.encoder = ...
+                #   self.learnable_proto = ...
+                # So its keys are 'encoder.conv1...', 'learnable_proto...'
                 
-                new_state_dict = {k: v for k, v in state_dict.items() if k in model_state_dict and 'fc' not in k}
-                model_state_dict.update(new_state_dict)
-                model.encoder.load_state_dict(model_state_dict)
+                # The 'encoder.' keys match perfectly.
+                # We can use strict=False to ignore 'fc' (in ckpt) and 'learnable_proto' (in model)
                 
-                model_state_dict.update(new_state_dict)
-                model.encoder.load_state_dict(model_state_dict)
+                # Check consistency just in case
+                if any(k.startswith('encoder.') for k in state_dict.keys()):
+                    print("[get_train_models] Detected 'encoder.' prefix in checkpoint. Using top-level selective load.")
+                    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+                    print(f"[get_train_models] Weights loaded. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
+                else:
+                    # Fallback for checkpoints without 'encoder.' prefix (e.g. if we saved just the backbone)
+                    print("[get_train_models] No 'encoder.' prefix. Trying to load into model.encoder directly.")
+                    model.encoder.load_state_dict(state_dict, strict=False)
                 
             elif use_pretrain:
                 # User explicitly requested NO ImageNet weights.
@@ -85,18 +91,32 @@ def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs
              # Load custom weights for projector mode
              print(f"[get_train_models] Loading custom weights from {use_pretrain} for Projector Model")
              state_dict = torch.load(use_pretrain, map_location='cpu')
+             model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes) 
              
-             model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes) # Initialize model before loading state_dict
-             # model.encoder is Sequential(backbone, projector)
-             # Our pretrain script saves ResNet (backbone + fc).
-             # We want to load this into backbone (model.encoder[0]).
+             # LearnableProtoResNetWithProjector structure:
+             # self.encoder = nn.Sequential(backbone, projector)
+             # Keys: 'encoder.0.conv1...', 'encoder.1.weight'...
              
-             target_backbone = model.encoder[0]
-             backbone_dict = target_backbone.state_dict()
+             # Checkpoint (SupCEResNet) structure:
+             # keys: 'encoder.conv1...', 'fc...'
              
-             new_state_dict = {k: v for k, v in state_dict.items() if k in backbone_dict and 'fc' not in k}
-             backbone_dict.update(new_state_dict)
-             target_backbone.load_state_dict(backbone_dict)
+             # Mismatch: Checkpoint says 'encoder.conv1...', Model says 'encoder.0.conv1...'
+             # We need to map 'encoder.' -> 'encoder.0.'
+             
+             new_state_dict = {}
+             for k, v in state_dict.items():
+                 if k.startswith('encoder.'):
+                     # encoder.conv1... -> encoder.0.conv1...
+                     new_k = k.replace('encoder.', 'encoder.0.')
+                     new_state_dict[new_k] = v
+                 # Ignore fc
+            
+             if len(new_state_dict) > 0:
+                 print("[get_train_models] Remapping 'encoder.' -> 'encoder.0.' for Projector architecture.")
+                 model.load_state_dict(new_state_dict, strict=False)
+             else:
+                 # Fallback: maybe exact match?
+                 model.load_state_dict(state_dict, strict=False)
         
         elif use_pretrain:
              # Disabling ImageNet fallback for Projector mode too
