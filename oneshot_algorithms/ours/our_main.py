@@ -735,15 +735,26 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
 def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_strategy='simple_feature',lambda_val=0):
     logger.info('OneshotOursV7 with DRCL (ETF Anchors) and Lambda Annealing')
     
-    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
-    if use_pretrain:
-        logger.info("[OneshotOursV7] Using Pretrained Weights for Backbone!")
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV7] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV7] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
 
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
         mode='our',
-        use_pretrain=use_pretrain
+        use_pretrain=use_pretrain_arg
     )
     global_model.to(device)
     global_model.train()
@@ -1114,15 +1125,29 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
 
 
     # 2. --- 标准初始化 ---
-    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
-    if use_pretrain:
-        logger.info("[OneshotOursV10] Using Pretrained Weights for Backbone!")
+    # Check if we should use custom path
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    
+    # Construct expected path if not explicit: e.g. ./pretrain/tiny-imagenet_resnet18_centralized.pth
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV10] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV10] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
 
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
         mode='our',
-        use_pretrain=use_pretrain
+        use_pretrain=use_pretrain_arg
     )
 
     feature_dim = global_model.learnable_proto.shape[1]
@@ -1253,10 +1278,27 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
     # --- 标准初始化代码 ---
     # ... (读取配置, 初始化模型, ETF锚点, 数据加载器等)
     v10_cfg = config.get('v10_config', {})
+    
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV11] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV11] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain_arg
     )
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
@@ -1389,10 +1431,29 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
     
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
+    # --- 标准初始化 ---
+    v10_cfg = config.get('v10_config', {})
+    
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV12] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV12] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain_arg
     )
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
@@ -1522,10 +1583,29 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
     
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
+    # --- 标准初始化 ---
+    v10_cfg = config.get('v10_config', {})
+    
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV13] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV13] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
+
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
-        mode='our'
+        mode='our',
+        use_pretrain=use_pretrain_arg
     )
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
@@ -1659,15 +1739,26 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
     
-    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
-    if use_pretrain:
-        logger.info("[OneshotOursV14] Using Pretrained Weights for Backbone!")
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV14] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV14] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
 
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
         mode='our',
-        use_pretrain=use_pretrain
+        use_pretrain=use_pretrain_arg
     )
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
@@ -2009,15 +2100,26 @@ def OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_
     v10_cfg = config.get('v10_config', {})
     
     # CHANGE 1: Request the model with 'our_projector' mode to get LearnableProtoResNetWithProjector
-    use_pretrain = config.get('DBCD', {}).get('use_pretrain', False)
-    if use_pretrain:
-        logger.info("[OneshotOursV15] Using Pretrained Weights for Backbone!")
+    use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
+    custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
+    dataset_name_lower = config['dataset']['data_name'].lower()
+    model_name = config['server']['model_name']
+    expected_custom_path = os.path.join(custom_pretrain_path, f"{dataset_name_lower}_{model_name}_centralized.pth")
+    
+    use_pretrain_arg = False
+    if use_pretrain_bool:
+        if os.path.exists(expected_custom_path):
+            use_pretrain_arg = expected_custom_path
+            logger.info(f"[OneshotOursV15] Found custom centralized weights at {expected_custom_path}. Using them!")
+        else:
+            use_pretrain_arg = False # Changed from True
+            logger.warning(f"[OneshotOursV15] Custom weights NOT found at {expected_custom_path}. Using Random Initialization (ImageNet Disabled).")
 
     global_model = get_train_models(
         model_name=config['server']['model_name'],
         num_classes=config['dataset']['num_classes'],
         mode='our_projector',
-        use_pretrain=use_pretrain
+        use_pretrain=use_pretrain_arg
     )
     
     feature_dim = global_model.learnable_proto.shape[1]
