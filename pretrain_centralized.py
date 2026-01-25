@@ -20,6 +20,20 @@ def train(model, train_loader, optimizer, criterion, device, epoch):
     pbar = tqdm(train_loader, desc=f'Epoch {epoch}')
     for batch_idx, (data, target) in enumerate(pbar):
         data, target = data.to(device), target.to(device)
+
+        # --- DEBUG CODE START ---
+        if epoch == 1 and batch_idx == 0:
+            print("\n--- DEBUG INFO ---")
+            # 1. 检查是否加载了正确的模型（3x3 vs 7x7）
+            print(f"Model Conv1: {model.encoder.conv1}") 
+            # 2. 检查数据范围是否在 [-2, 2] 之间
+            print(f"Data Range: min={data.min().item():.2f}, max={data.max().item():.2f}")
+            # 3. 检查 Label 是否在 0-199 范围内
+            print(f"Target Min: {target.min().item()}, Max: {target.max().item()}")
+            print("------------------\n")
+        # --- DEBUG CODE END ---
+
+        
         optimizer.zero_grad()
         output = model(data)
         loss = criterion(output, target)
