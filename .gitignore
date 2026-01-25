@@ -12,5 +12,5 @@ wins_draw_pic/
 draw_pic/
 visualization/
 dataset/
-
-
+data/
+pretrain/

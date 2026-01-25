@@ -1,0 +1,81 @@
+DBCD:
+  Beta_alpha: 0.2
+  alpha_l_pa: 1
+  alpha_l_pb: 1
+  alpha_l_pc: 0.0
+  aug_batch_size: 512
+  aux_with_public: true
+  cls_lr: 0.05
+  cls_optimizer: sgd
+  contrastive_temperature: 0.5
+  encoder_epoch: 40
+  encoder_lr: 0.03
+  projector_epoch: 10
+  supcon_temp: 0.07
+  super_gr: 100
+  unsup_method: infonce
+  use_pretrain: false
+checkpoint:
+  result_file: SVHN_results.yaml
+  save_freq: 5
+  save_path: ./checkpoints/
+client:
+  num_clients: 5
+dataset:
+  aux_data_name: SVHN
+  aux_root_path: ~/datasets/
+  aux_split: test
+  channels: 3
+  data_name: SVHN
+  image_size: 32
+  num_classes: 10
+  root_path: ~/datasets/
+  test_batch_size: 256
+  train_batch_size: 256
+device: cuda:0
+distribution:
+  alpha: 0.05
+  label_num_per_client: 2
+  type: dirichlet
+etf:
+  loss_name: ce
+exp_name: SVHN_alpha0.05
+lambda_align_initial: 10.0
+pretrain:
+  epoch: 70
+  lr: 0.01
+  model_file_name: resnet18-f37072fd.pth
+  model_name: resnet18
+  model_path: ./pretrain/
+  momentum: 0.9
+  weight_decay: 0.0001
+resume: true
+resume_best: false
+seed: 350234
+server:
+  aggregated_by_datasize: true
+  frac_clients: 1.0
+  local_epochs: 1
+  loss_name: ce
+  lr: 0.05
+  lr_decay_per_round: 0.998
+  model_name: resnet18
+  momentum: 0.9
+  num_rounds: 50
+  optimizer: sgd
+  weight_decay: 0.0001
+v10_config:
+  sigma_lr: 0.005
+  use_uncertainty_weighting: true
+v9_config:
+  gamma_etf_reg: 0.1
+  lambda_max: 20.0
+  lambda_min: 0.1
+  server_epochs: 20
+  server_lr: 0.001
+  use_adaptive_lambda: true
+  use_server_optimization: false
+visualization:
+  interval: 5
+  save_path: visualization/resnet18
+  vis_size: 16
