@@ -109,6 +109,8 @@ elif config_args.algo == 'OursV15FedAvg':
     # But based on my implementation, OursV15 does the full training + FedAvg.
     # If the user specifically asks for V15FedAvg, it implies the same.
     OneshotOursV15(trainset, test_loader, client_idx_map, config, device, gamma_reg=config_args.gamma_reg, lambda_max=config_args.lambda_max)
+elif config_args.algo == 'Ours_FeatureCollapse_Ablation':
+    OneshotOurs_FeatureCollapse_Ablation(trainset, test_loader, client_idx_map, config, device, lambda_val=config_args.lambdaval)
 else:
     raise NotImplementedError(f"Algorithm {config_args.algo} is not implemented.")   
 

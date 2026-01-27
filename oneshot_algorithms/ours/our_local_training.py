@@ -5,7 +5,7 @@ from common_libs import *
 
 
 
-def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0):
+def ours_local_training(model, training_data, test_dataloader, start_epoch, local_epochs, optim_name, lr, momentum, loss_name, device, num_classes, sample_per_class, aug_transformer, client_model_dir, total_rounds, save_freq=1, use_drcl=False, fixed_anchors=None, lambda_align=1.0, use_progressive_alignment=False, initial_protos=None, use_uncertainty_weighting=False, sigma_lr=None, annealing_factor=1.0, use_dynamic_task_attenuation=False, gamma_reg=0, lambda_max=50.0, force_feature_alignment=False):
    
     model.train()
     model.to(device)
@@ -107,10 +107,24 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                 # 只对当前batch中出现的类计算对齐损失 (class mask)
                 unique_classes = torch.unique(target)
                 if len(unique_classes) > 0:
-                    # 只取出现类的prototype和anchor
-                    proto_subset = model.learnable_proto[unique_classes]
-                    anchor_subset = fixed_anchors[unique_classes]
-                    align_loss = alignment_loss_fn(proto_subset, anchor_subset)
+                    if force_feature_alignment:
+                         # [ABLATION] Force features to align directly with anchors
+                         # This bypasses the prototype layer to prove "Feature Collapse"
+                         # Extract features for unique classes (using mask/indexing is tricky for features,
+                         # so we align features to their corresponding class anchors for ALL samples in batch)
+                         
+                         # Get anchors for each sample in the batch
+                         batch_anchors = fixed_anchors[target] # [batch_size, feature_dim]
+                         
+                         # Directly minimize distance between normalized features and anchors
+                         # feature_norm is already normalized
+                         align_loss = alignment_loss_fn(feature_norm, batch_anchors)
+                         
+                    else:
+                        # Standard AURORA: Align Prototypes <-> Anchors
+                        proto_subset = model.learnable_proto[unique_classes]
+                        anchor_subset = fixed_anchors[unique_classes]
+                        align_loss = alignment_loss_fn(proto_subset, anchor_subset)
                 else:
                     align_loss = 0
 
