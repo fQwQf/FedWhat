@@ -114,7 +114,10 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                          # so we align features to their corresponding class anchors for ALL samples in batch)
                          
                          # Get anchors for each sample in the batch
-                         batch_anchors = fixed_anchors[target] # [batch_size, feature_dim]
+                         # Note: feature_norm corresponds to aug_data which is [aug1, aug2], so it has 2*batch_size
+                         # We need to duplicate targets/anchors to match
+                         aug_targets = torch.cat([target, target], dim=0)
+                         batch_anchors = fixed_anchors[aug_targets] # [2*batch_size, feature_dim]
                          
                          # Directly minimize distance between normalized features and anchors
                          # feature_norm is already normalized
