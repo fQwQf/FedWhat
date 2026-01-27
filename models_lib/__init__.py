@@ -1,6 +1,7 @@
 from .resnet_big import *
 from .otfusion_model import *
 from .lightweight_model import *
+from .vit import *
 
 def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs):
     if mode == 'unsupervised':
@@ -21,6 +22,8 @@ def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs
             # MobileNet implementation usually does not support automatic weight loading here yet, 
             # or requires similar changes. Assuming ResNet18 for now as per user request.
             model = LearnableProtoMobileNet(model_name, num_classes=num_classes)
+        elif model_name == 'vit':
+            model = LearnableProtoViT(num_classes=num_classes)
         else:
                 
             # If use_pretrain is a STRING, we treat it as a path to a checkpoint

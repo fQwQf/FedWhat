@@ -175,6 +175,7 @@ supported_models = {
     'lenet': LeNet,
     'cnn_cifar10': CNNCifar,
     'cnn_cifar100': CNNCifar100,
+    'vit': None, # handled in __init__.py logic but key needed for validation if any
 }
 
 reused_models = {
