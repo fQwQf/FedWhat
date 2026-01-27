@@ -132,6 +132,10 @@ def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs
     else:
         if 'mobilenetv2' in model_name:
             model = SupConMobileNet(model_name, feat_dim=num_classes)
+        elif model_name == 'vit':
+            # Standard supervised training for ViT (FedAvg)
+            # Use the defaults defined in vit.py (Tiny scale)
+            model = SimpleViT(num_classes=num_classes)
         else:
             model = SupCEResNet(model_name, num_classes=num_classes)
         return model
