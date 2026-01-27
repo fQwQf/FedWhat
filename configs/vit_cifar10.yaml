@@ -1,16 +1,12 @@
 exp_name: "CIFAR10_ViT_alpha0.1"
 dataset:
   data_name: "CIFAR10" # choice: [CIFAR10, CIFAR100, MNIST, FMNIST]
-  root_path: "/data0/wxy_data/datasets/"
+  root_path: "H:/codes/dataset"
   train_batch_size: 128
   test_batch_size: 128
   channels: 3
   num_classes: 10
   image_size: 32
-
-  aux_data_name: "CIFAR10"
-  aux_root_path: "/data0/wxy_data/datasets/"
-  aux_split: 'test'
 
 distribution:
   type: "dirichlet" # choice: [iid, noniid, dirichlet]
@@ -18,7 +14,7 @@ distribution:
   alpha: 0.1
 
 client:
-  num_clients: 10
+  num_clients: 5
   
 server:
   num_rounds: 50
