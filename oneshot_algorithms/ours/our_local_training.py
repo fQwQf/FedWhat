@@ -11,7 +11,7 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
     model.to(device)
 
     if sigma_lr is None:
-        sigma_lr = 0.05 * lr # sigma 的学习率设为基础学习率的 0.05 倍
+        sigma_lr = 0.05 * lr # Set sigma learning rate to 0.05 times the base learning rate
 
     if use_uncertainty_weighting:
         # For V10, we create a special optimizer with two parameter groups.
@@ -53,7 +53,7 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
     con_proto_feat_loss_fn = Contrastive_proto_feature_loss(temperature=1.0)
     con_proto_loss_fn = Contrastive_proto_loss(temperature=1.0)
 
-    # 如果使用DRCL，定义对齐损失函数
+    # If using DRCL, define alignment loss function
     if use_drcl or use_progressive_alignment:
         alignment_loss_fn = torch.nn.MSELoss()
 
@@ -90,21 +90,21 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
             # prototype self constrastive 
             pro_con_loss = con_proto_loss_fn(model.learnable_proto)
 
-            # 计算基础损失，并根据开关决定是否加入对齐损失
+            # Calculate base loss, and decide whether to add alignment loss based on switch
             base_loss = cls_loss + contrastive_loss + pro_con_loss + pro_feat_con_loss
 
             align_loss = 0
 
-            # 选择对齐策略
+            # Select alignment strategy
             if use_progressive_alignment and initial_protos is not None and fixed_anchors is not None:
-                # OursV8 逻辑: 渐进式对齐
+                # OursV8 Logic: Progressive Alignment
                 progress = (e - start_epoch) / local_epochs
-                # 动态计算插值目标
+                # Dynamically calculate interpolation target
                 target_anchor = (1 - progress) * initial_protos + progress * fixed_anchors
                 align_loss = alignment_loss_fn(model.learnable_proto, target_anchor)
             elif use_drcl and fixed_anchors is not None:
-                # OursV5, V6, V7 逻辑: 对齐到固定目标
-                # 只对当前batch中出现的类计算对齐损失 (class mask)
+                # OursV5, V6, V7 Logic: Align to fixed targets
+                # Only calculate alignment loss for classes present in the current batch (class mask)
                 unique_classes = torch.unique(target)
                 if len(unique_classes) > 0:
                     if force_feature_alignment:
@@ -132,38 +132,38 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     align_loss = 0
 
             if use_uncertainty_weighting:
-                # V10: 动态学习权重
+                # V10: Dynamic weight learning
                 sigma_sq_local = torch.exp(model.log_sigma_sq_local)
                 sigma_sq_align = torch.exp(model.log_sigma_sq_align)
 
-                ## V12: 新的内部退火逻辑
+                ## V12: New internal annealing logic
                 if use_dynamic_task_attenuation:
-                    # 计算全局训练进度
-                    current_step = e # 使用epoch级别进度
+                    # Calculate global training progress
+                    current_step = e # Use epoch-level progress
                     progress = current_step / total_training_steps
-                    # 使用余弦衰减函数，从1平滑降到0
+                    # Use cosine decay function, smoothly dropping from 1 to 0
                     schedule_factor = 0.5 * (1.0 + math.cos(math.pi * progress))
                     schedule_factor = max(0.0, schedule_factor)
 
-                    # 稳定正则: ReLU-hinge 形式 L_reg = γ·ReLU(λ_eff - λ_max)
-                    # 注意：这里用非detach的λ_eff，让梯度可以流向σ参数
+                    # Stability Regularization: ReLU-hinge form L_reg = gamma * ReLU(lambda_eff - lambda_max)
+                    # Note: Using non-detached lambda_eff here, allowing gradients to flow to sigma parameters
                     # Modified to use Linear ReLU to match User's V14 logic, replacing the duplicate block.
                     lambda_eff_for_reg = sigma_sq_local / sigma_sq_align
                     stability_reg = gamma_reg * torch.relu(lambda_eff_for_reg - lambda_max)
 
-                    # 修正版: schedule_factor 放在 log 正则项上，而非数据项
-                    # 这保证 s(p)->0 时, log正则项消失, σ²_align->∞, λ_eff->0
+                    # Corrected version: schedule_factor is placed on the log regularization term, not the data term
+                    # This ensures when s(p)->0, log regularization term vanishes, sigma_sq_align->inf, lambda_eff->0
                     loss_sigma_main  = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     (0.5 / sigma_sq_align) * align_loss.detach()
                                         
-                    # loss_for_weights 不再需要外部的 annealing_factor
+                    # loss_for_weights no longer needs external annealing_factor
                     effective_lambda = (sigma_sq_local / sigma_sq_align).detach()
                     loss_for_weights = base_loss + effective_lambda * align_loss
 
-                # V11: 保留原有的外部退火逻辑以供对比
+                # V11: Keep original external annealing logic for comparison
                 else:
-                    schedule_factor = 1.0  # V11不使用内部退火，保持log正则项完整
-                    stability_reg = 0  # 在旧版本中关闭此功能
+                    schedule_factor = 1.0  # V11 does not use internal annealing, keeps log regularization term separate
+                    stability_reg = 0  # Disable this feature in old versions
 
                     loss_sigma_main = (0.5 / sigma_sq_local) * base_loss.detach() + \
                                     (0.5 / sigma_sq_align) * align_loss.detach()
@@ -172,9 +172,9 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                     lambda_annealed = effective_lambda * annealing_factor
                     loss_for_weights = base_loss + lambda_annealed * align_loss
 
-                # 将所有与 sigma 相关的项组合在一起
-                # 关键修正: schedule_factor 乘在 log(sigma_sq_align) 上
-                # 当 s(p)->0 时，对齐任务的正则项消失，σ²_align 会趋向无穷大
+                # Combine all sigma-related terms
+                # Key correction: schedule_factor multiplied on log(sigma_sq_align)
+                # When s(p)->0, alignment task regularization vanishes, sigma_sq_align tends to infinity
                 loss_for_sigma_total = loss_sigma_main + \
                            0.5 * (torch.log(sigma_sq_local) + schedule_factor * torch.log(sigma_sq_align)) + \
                            stability_reg
@@ -182,12 +182,12 @@ def ours_local_training(model, training_data, test_dataloader, start_epoch, loca
                 loss = loss_for_weights + loss_for_sigma_total
 
                 
-            elif use_drcl: # 兼容 V7, V8, V9
-                # 固定的或自适应的lambda + 全局退火
+            elif use_drcl: # Compatible with V7, V8, V9
+                # Fixed or adaptive lambda + global annealing
                 global_progress = e / total_training_steps
                 lambda_annealed = lambda_align * (1 - global_progress)
                 loss = base_loss + lambda_annealed * align_loss
-            else: # 兼容 V4
+            else: # Compatible with V4
                 loss = base_loss
 
 

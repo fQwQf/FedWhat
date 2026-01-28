@@ -97,41 +97,41 @@ def generate_etf_anchors(num_classes, feature_dim, device):
     Generate Equiangular Tight Frame (ETF) anchors based on Neural Collapse theory.
     This creates a set of maximally separated and geometrically optimal prototype targets.
     """
-    # 确保特征维度至少不小于类别数，这是构建ETF的常见要求
+    # Ensure feature dimension is at least number of classes, a common requirement for ETF construction
     if feature_dim < num_classes:
-        # 如果维度不够，我们可以退回到正交基，这是一个很好的次优选择
+        # If dimension is insufficient, we can fallback to orthogonal basis, a good suboptimal choice
         logger.warning(f"Feature dim ({feature_dim}) is less than num_classes ({num_classes}). Falling back to orthogonal anchors.")
         H = torch.randn(feature_dim, num_classes)
         Q, _ = torch.qr(H)
         return Q.T.to(device)
 
-    # 1. 构造ETF的格拉姆矩阵 M = I - (1/C) * J
+    # 1. Construct the Gram matrix of ETF: M = I - (1/C) * J
     I = torch.eye(num_classes)
     J = torch.ones(num_classes, num_classes)
     M = I - (1 / num_classes) * J
 
-    # 2. 通过Cholesky分解找到 M_sqrt
-    # M 是半正定的，可能需要添加一个小的epsilon以保证数值稳定性
+    # 2. Find M_sqrt via Cholesky decomposition
+    # M is positive semi-definite, may need to add a small epsilon for numerical stability
     try:
         L = torch.linalg.cholesky(M + 1e-6 * I)
     except torch.linalg.LinAlgError:
-        # 如果Cholesky分解失败，使用特征值分解
+        # If Cholesky decomposition fails, use eigenvalue decomposition
         eigvals, eigvecs = torch.linalg.eigh(M)
-        eigvals[eigvals < 0] = 0 # 消除数值误差导致的负特征值
+        eigvals[eigvals < 0] = 0 # Eliminate negative eigenvalues caused by numerical errors
         L = eigvecs @ torch.diag(torch.sqrt(eigvals))
 
-    # 3. 生成一个随机正交矩阵的“基底”
+    # 3. Generate a "basis" of a random orthogonal matrix
     H_ortho = torch.randn(feature_dim, num_classes)
-    Q, _ = torch.linalg.qr(H_ortho) # Q的列是正交的
+    Q, _ = torch.linalg.qr(H_ortho) # Columns of Q are orthogonal
 
-    # 4. 将基底与 M_sqrt 相乘，生成最终的ETF矩阵
-    # W 的列向量构成了ETF
+    # 4. Multiply the basis with M_sqrt to generate the final ETF matrix
+    # Column vectors of W constitute the ETF
     W = Q @ L.T
     
-    # 我们需要的是 (num_classes, feature_dim) 的原型，所以返回转置
+    # We need prototypes of shape (num_classes, feature_dim), so return transpose
     etf_anchors = W.T.to(device)
     
-    # 最终归一化，确保所有锚点都是单位向量
+    # Final normalization to ensure all anchors are unit vectors
     etf_anchors = torch.nn.functional.normalize(etf_anchors, dim=1)
     
     return etf_anchors
@@ -525,7 +525,7 @@ def OneshotOurs(trainset, test_loader, client_idx_map, config, device, server_st
         save_yaml_config(save_path + "/baselines_" + method_name +"_" + config['checkpoint']['result_file'], method_results)
 
 
-# 新增 OneshotOursV5 (DRCL 版本)
+# Added OneshotOursV5 (DRCL Version)
 def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_simple_server=True):
     logger.info('OneshotOursV5 with Decoupled Representation and Classifier Learning (DRCL)')
     # get the global model
@@ -538,12 +538,12 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
     global_model.to(device)
     global_model.train()
 
-    # --- 新增逻辑：创建固定的全局原型锚点 ---
-    # 获取原型维度
+    # --- New Logic: Create fixed global prototype anchors ---
+    # Get prototype dimensions
     proto_shape = global_model.learnable_proto.shape
-    # 随机初始化，设置 requires_grad=False 使其不可学习
+    # Random initialization, set requires_grad=False to make it non-learnable
     fixed_anchors = torch.randn(proto_shape, device=device, requires_grad=False)
-    # 归一化以保证稳定性
+    # Normalize to ensure stability
     fixed_anchors = torch.nn.functional.normalize(fixed_anchors, dim=1)
     logger.info(f"Initialized fixed anchors with shape: {fixed_anchors.shape}")
     # ----------------------------------------
@@ -580,7 +580,7 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
                 logger.info('generating sample per sample')
 
-            # --- 修改本地训练调用 ---
+            # --- Modified local training call ---
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -598,10 +598,10 @@ def OneshotOursV5(trainset, test_loader, client_idx_map, config, device, use_sim
                 client_model_dir=local_model_dir + f"/client_{c}",
                 total_rounds=total_rounds,
                 save_freq=config['checkpoint']['save_freq'],
-                # 传入新参数以启用DRCL
+                # Pass new arguments to enable DRCL
                 use_drcl=True,
                 fixed_anchors=fixed_anchors,
-                lambda_align=config.get('lambda_align', 1.0) # 从config获取超参，默认1.0
+                lambda_align=config.get('lambda_align', 1.0) # Get hyperparameter from config, default 1.0
             )
             # --------------------------
             
@@ -681,7 +681,7 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
                 logger.info('generating sample per sample')
 
-            # 调用的是同一个local_training函数，但其内部逻辑会因epoch变化而不同
+            # Calls the same local_training function, but internal logic changes with epochs
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -701,7 +701,7 @@ def OneshotOursV6(trainset, test_loader, client_idx_map, config, device, use_sim
                 save_freq=config['checkpoint']['save_freq'],
                 use_drcl=True,
                 fixed_anchors=fixed_anchors,
-                # lambda_align现在代表初始值
+                # lambda_align now represents the initial value
                 lambda_align=config.get('lambda_align_initial', 5.0)
             )
             
@@ -759,7 +759,7 @@ def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_
     global_model.to(device)
     global_model.train()
 
-    # --- 核心修改：使用ETF锚点替换随机锚点 ---
+    # --- Core modification: Replace random anchors with ETF anchors ---
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
     fixed_anchors = generate_etf_anchors(num_classes, feature_dim, device)
@@ -804,7 +804,7 @@ def OneshotOursV7(trainset, test_loader, client_idx_map, config, device, server_
 
             logger.info(f"Using provided lambda_align_initial: {lambda_align_initial}")
 
-            # 调用与V6完全相同的本地训练函数，但传入的是高质量的ETF锚点
+            # Call the exact same local training function as V6, but pass high-quality ETF anchors
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -889,9 +889,9 @@ def OneshotOursV8(trainset, test_loader, client_idx_map, config, device):
 
     local_models = [copy.deepcopy(global_model) for _ in range(config['client']['num_clients'])]
     
-    # 计算一个共同的“共识起点”
+    # Calculate a common "Consensus Start Point"
     initial_local_protos = [model.get_proto().detach().clone() for model in local_models]
-    # 计算所有初始原型的平均值
+    # Calculate the mean of all initial prototypes
     consensus_start_protos = torch.stack(initial_local_protos).mean(dim=0)
     logger.info("Calculated a shared CONSENSUS start point for all clients.")
 
@@ -973,7 +973,7 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
     global_model.to(device)
     global_model.train()
 
-    # --- 核心修改：使用ETF锚点替换随机锚点 ---
+    # --- Core modification: Replace random anchors with ETF anchors ---
     feature_dim = global_model.learnable_proto.shape[1]
     num_classes = config['dataset']['num_classes']
     etf_anchors = generate_etf_anchors(num_classes, feature_dim, device)
@@ -1037,7 +1037,7 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
             else:
                 current_lambda = config.get('lambda_align_initial', 5.0) 
 
-            # 调用与V6完全相同的本地训练函数，但传入的是高质量的ETF锚点
+            # Call the exact same local training function as V6, but pass high-quality ETF anchors
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -1117,14 +1117,14 @@ def OneshotOursV9(trainset, test_loader, client_idx_map, config, device, server_
 def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwargs):
     logger.info('OneshotOursV10 with uncertainty weighting, Pre-heated with V9 Adaptive Lambda')
     
-    # 1. --- 读取总开关 ---
+    # 1. --- Read Master Switch ---
     v10_cfg = config.get('v10_config', {})
     use_uncertainty_weighting = v10_cfg.get('use_uncertainty_weighting', False)
     if not use_uncertainty_weighting:
         logger.warning("Running V10 but 'use_uncertainty_weighting' is false. This will run like V7.")
 
 
-    # 2. --- 标准初始化 ---
+    # 2. --- Standard Initialization ---
     # Check if we should use custom path
     use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
     custom_pretrain_path = config.get('pretrain', {}).get('model_path', '')
@@ -1221,8 +1221,8 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
 
 
-            # 4. --- 调用统一的本地训练函数，激活V10模式 ---
-            # 请注意，我们不再需要传递任何lambda值
+            # 4. --- Call unified local training function, activate V10 mode ---
+            # Note that we no longer need to pass any lambda value
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -1239,9 +1239,9 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
                 aug_transformer=aug_transformer,
                 client_model_dir=local_model_dir + f"/client_{c}",
                 total_rounds=total_rounds,
-                use_drcl=True, # 依然需要开启，以计算align_loss
+                use_drcl=True, # Still need to enable to calculate align_loss
                 fixed_anchors=etf_anchors,
-                use_uncertainty_weighting=True, # 激活V10
+                use_uncertainty_weighting=True, # Activate V10
                 sigma_lr=sigma_lr_val,
             )
             
@@ -1249,7 +1249,7 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
 
             local_protos.append(local_model_c.get_proto().detach())
             
-            # 在日志中打印学到的sigma值，以供分析
+            # Print learned sigma values in log for analysis
             learned_sigma_local = torch.exp(local_model_c.log_sigma_sq_local).item()**0.5
             learned_sigma_align = torch.exp(local_model_c.log_sigma_sq_align).item()**0.5
             effective_lambda = (learned_sigma_local**2) / (learned_sigma_align**2)
@@ -1275,8 +1275,8 @@ def OneshotOursV10(trainset, test_loader, client_idx_map, config, device, **kwar
 def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,annealing_strategy='none' , **kwargs):
     logger.info('OneshotOursV11: Consensus-Driven Dynamic Annealing with Uncertainty Weighting')
     
-    # --- 标准初始化代码 ---
-    # ... (读取配置, 初始化模型, ETF锚点, 数据加载器等)
+    # --- Standard initialization code ---
+    # ... (Read config, init model, ETF anchors, data loaders etc.)
     v10_cfg = config.get('v10_config', {})
     
     use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
@@ -1314,10 +1314,10 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
     aug_transformer = get_supcon_transform(config['dataset']['data_name'])
     clients_sample_per_class = []
     
-    # --- lambda预热 ---
+    # --- Lambda warm-up ---
     logger.info("--- Pre-heating V11 models with V9's adaptive lambda strategy ---")
     for c in range(config['client']['num_clients']):
-        # ... (计算 initial_lambda 并植入 sigma 参数)
+        # ... (Calculate initial_lambda and implant into sigma parameters)
         client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
         v9_cfg = config.get('v9_config', {})
         initial_lambda = calculate_adaptive_lambda(
@@ -1337,10 +1337,10 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
 
     total_rounds = config['server']['num_rounds']
 
-    # --- lambda退火 ---
-    # 初始化共识驱动退火的状态变量
+    # --- Lambda annealing ---
+    # Initialize state variables for consensus-driven annealing
     initial_proto_std = None
-    current_annealing_factor = 1.0  # 在第一轮，不施加任何退火
+    current_annealing_factor = 1.0  # Apply no annealing in the first round
 
     for cr in trange(total_rounds):
         logger.info(f"Round {cr} starts---| Annealing Factor for this round: {current_annealing_factor:.4f}")
@@ -1369,25 +1369,25 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
                 aug_transformer=aug_transformer,
                 client_model_dir=local_model_dir + f"/client_{c}",
                 total_rounds=total_rounds,
-                use_drcl=True, # 依然需要开启，以计算align_loss
+                use_drcl=True, # Still need to enable to calculate align_loss
                 fixed_anchors=etf_anchors,
-                use_uncertainty_weighting=True, # 激活V10
+                use_uncertainty_weighting=True, # Activate V10
                 sigma_lr=sigma_lr_val,
-                annealing_factor=current_annealing_factor # 传入当前轮次的退火系数
+                annealing_factor=current_annealing_factor # Pass annealing factor for current round
             )
             
             local_models[c] = local_model_c
 
             local_protos.append(local_model_c.get_proto().detach())
 
-            # 在日志中打印学到的sigma值，以供分析
+            # Print learned sigma values in log for analysis
             learned_sigma_local = torch.exp(local_model_c.log_sigma_sq_local).item()**0.5
             learned_sigma_align = torch.exp(local_model_c.log_sigma_sq_align).item()**0.5
             effective_lambda = (learned_sigma_local**2) / (learned_sigma_align**2)
             logger.info(f"Client {c} Learned Sigmas -> L_local: {learned_sigma_local:.4f}, L_align: {learned_sigma_align:.4f}. Effective Lambda: {effective_lambda:.4f}")
 
-        # ================== [ V11 核心创新逻辑 START ] ==================
-        # 在每轮结束后，为下一轮 (cr + 1) 计算退火系数
+        # ================== [ V11 Core Innovation Logic START ] ==================
+        # Calculate annealing factor for next round (cr + 1) after each round finishes
         next_round_progress = (cr + 1) / total_rounds
 
         if annealing_strategy == 'linear':
@@ -1413,11 +1413,11 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
         current_annealing_factor = max(0.0, next_annealing_factor)
         
         logger.info(f"Current annealing strategy: {annealing_strategy}. Next round's annealing factor set to: {current_annealing_factor:.4f}")
-        # =================== [ V11 核心创新逻辑 END ] ===================
+        # =================== [ V11 Core Innovation Logic END ] ===================
 
         logger.info(f"Round {cr} Finish--------|")
         
-        # ... [与V10相同的评估和保存逻辑]
+        # ... [Same evaluation and save logic as V10]
         method_name = 'OursV11+SimpleFeatureServer'
         ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
         global_proto = aggregate_local_protos(local_protos)
@@ -1429,7 +1429,7 @@ def OneshotOursV11(trainset, test_loader, client_idx_map, config, device,anneali
 def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwargs):
     logger.info('OneshotOursV12: Uncertainty Weighting with INTERNAL Dynamic Task Attenuation')
     
-    # --- 标准初始化 ---
+    # --- Standard Initialization ---
     v10_cfg = config.get('v10_config', {})
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
@@ -1471,7 +1471,7 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
     aug_transformer = get_supcon_transform(config['dataset']['data_name'])
     clients_sample_per_class = []
     
-    # --- 与V11相同的lambda预热逻辑 ---
+    # --- Same lambda warm-up logic as V11 ---
     logger.info("--- Pre-heating V12 models with V9's adaptive lambda strategy ---")
     for c in range(config['client']['num_clients']):
         client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
@@ -1503,7 +1503,7 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
             if cr == 0:
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
 
-            # --- 核心调用改变：激活V12的新逻辑 ---
+            # --- Core call change: Activate new V12 logic ---
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -1524,39 +1524,39 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
                 fixed_anchors=etf_anchors,
                 use_uncertainty_weighting=True,
                 sigma_lr=sigma_lr_val,
-                # 新增的开关，用于激活V12的内部退火逻辑
+                # New switch to activate V12 internal annealing logic
                 use_dynamic_task_attenuation=True 
             )
             
             local_models[c] = local_model_c
             local_protos.append(local_model_c.get_proto().detach())
 
-            # 日志分析
-            # 1. 像以前一样，从返回的模型中获取最终的 sigma 值
+            # Log Analysis
+            # 1. As before, get final sigma values from returned model
             log_sigma_sq_local_val = local_model_c.log_sigma_sq_local.item()
             log_sigma_sq_align_val = local_model_c.log_sigma_sq_align.item()
 
-            # 2. 计算由 sigma 参数学习到的“原始 Lambda”
-            #    这个值在后期会爆炸性增长
+            # 2. Calculate "Raw Lambda" learned by sigma parameters
+            #    This value will grow explosively in later stages
             raw_lambda = math.exp(log_sigma_sq_local_val - log_sigma_sq_align_val)
 
-            # 3. 计算在当前本地训练结束时，“元退火”系数 s(p) 的值
-            #    这需要知道总的训练步数和当前所处的步数
+            # 3. Calculate "Meta-Annealing" factor s(p) at the end of current local training
+            #    This requires knowing total training steps and current step
             total_training_epochs = config['server']['num_rounds'] * config['server']['local_epochs']
             
-            # cr 是从0开始的当前轮次
+            # cr is current round index starting from 0
             end_epoch_of_this_round = (cr + 1) * config['server']['local_epochs']
             
             global_progress = end_epoch_of_this_round / total_training_epochs
             
-            # 假设 s(p) 是线性衰减 s(p) = 1 - p
-            # 使用 max(0.0, ...) 来确保其不会变为负数
+            # Assume s(p) is linear decay s(p) = 1 - p
+            # Use max(0.0, ...) to ensure it doesn't become negative
             s_p_value = max(0.0, 1.0 - global_progress)
 
-            # 4. 计算真正作用于模型权重 W 的“真实生效 Lambda”
+            # 4. Calculate "Truly Effective Lambda" that actually acts on model weights W
             truly_effective_lambda = raw_lambda * s_p_value
 
-            # 5. 打印全新的、信息量巨大的日志
+            # 5. Print brand new, highly informative log
             log_message = (
                 f"Client {c} Post-Training State -> "
                 f"Raw λ: {raw_lambda:9.4f} "
@@ -1568,7 +1568,7 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
 
         logger.info(f"Round {cr} Finish--------|")
         
-        # --- 评估和保存逻辑 ---
+        # --- Evaluation and Save Logic ---
         method_name = 'OursV12+SimpleFeatureServer'
         ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
         global_proto = aggregate_local_protos(local_protos)
@@ -1581,7 +1581,7 @@ def OneshotOursV12(trainset, test_loader, client_idx_map, config, device, **kwar
 def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_reg, lambda_max=50.0, **kwargs):
     logger.info('OneshotOursV13: V12 with stability_anchor')
     
-    # --- 标准初始化 ---
+    # --- Standard Initialization ---
     v10_cfg = config.get('v10_config', {})
     # --- 标准初始化 ---
     v10_cfg = config.get('v10_config', {})
@@ -1623,7 +1623,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
     aug_transformer = get_supcon_transform(config['dataset']['data_name'])
     clients_sample_per_class = []
     
-    # --- 与V11相同的lambda预热逻辑 ---
+    # --- Same lambda warm-up logic as V11 ---
     logger.info("--- Pre-heating V13 models with V9's adaptive lambda strategy ---")
     for c in range(config['client']['num_clients']):
         client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
@@ -1657,7 +1657,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
             if cr == 0:
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
 
-            # --- 核心调用改变：激活V12的新逻辑 ---
+            # --- Core call change: Activate new V12 logic ---
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -1678,7 +1678,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
                 fixed_anchors=etf_anchors,
                 use_uncertainty_weighting=True,
                 sigma_lr=sigma_lr_val,
-                # 新增的开关，用于激活V12的内部退火逻辑
+                # New switch to activate V12 internal annealing logic
                 use_dynamic_task_attenuation=True,
                 gamma_reg = gamma_reg,
                 lambda_max = lambda_max
@@ -1687,32 +1687,32 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
             local_models[c] = local_model_c
             local_protos.append(local_model_c.get_proto().detach())
 
-            # 日志分析
-            # 1. 像以前一样，从返回的模型中获取最终的 sigma 值
+            # Log Analysis
+            # 1. As before, get final sigma values from returned model
             log_sigma_sq_local_val = local_model_c.log_sigma_sq_local.item()
             log_sigma_sq_align_val = local_model_c.log_sigma_sq_align.item()
 
-            # 2. 计算由 sigma 参数学习到的“原始 Lambda”
-            #    这个值在后期会爆炸性增长
+            # 2. Calculate "Raw Lambda" learned by sigma parameters
+            #    This value will grow explosively in later stages
             raw_lambda = math.exp(log_sigma_sq_local_val - log_sigma_sq_align_val)
 
-            # 3. 计算在当前本地训练结束时，“元退火”系数 s(p) 的值
-            #    这需要知道总的训练步数和当前所处的步数
+            # 3. Calculate "Meta-Annealing" factor s(p) at the end of current local training
+            #    This requires knowing total training steps and current step
             total_training_epochs = config['server']['num_rounds'] * config['server']['local_epochs']
             
-            # cr 是从0开始的当前轮次
+            # cr is current round index starting from 0
             end_epoch_of_this_round = (cr + 1) * config['server']['local_epochs']
             
             global_progress = end_epoch_of_this_round / total_training_epochs
             
-            # 假设 s(p) 是线性衰减 s(p) = 1 - p
-            # 使用 max(0.0, ...) 来确保其不会变为负数
+            # Assume s(p) is linear decay s(p) = 1 - p
+            # Use max(0.0, ...) to ensure it doesn't become negative
             s_p_value = max(0.0, 1.0 - global_progress)
 
-            # 4. 计算真正作用于模型权重 W 的“真实生效 Lambda”
+            # 4. Calculate "Truly Effective Lambda" that actually acts on model weights W
             truly_effective_lambda = raw_lambda * s_p_value
 
-            # 5. 打印全新的、信息量巨大的日志
+            # 5. Print brand new, highly informative log
             log_message = (
                 f"Client {c} Post-Training State -> "
                 f"Raw λ: {raw_lambda:9.4f} "
@@ -1724,7 +1724,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
 
         logger.info(f"Round {cr} Finish--------|")
         
-        # --- 评估和保存逻辑 ---
+        # --- Evaluation and Save Logic ---
         method_name = 'OursV13+SimpleFeatureServer'
         ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
         global_proto = aggregate_local_protos(local_protos)
@@ -1736,7 +1736,7 @@ def OneshotOursV13(trainset, test_loader, client_idx_map, config, device, gamma_
 def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_reg, lambda_max=50.0, **kwargs):
     logger.info('OneshotOursV14: V13 with lambda_max_threshold ')
     
-    # --- 标准初始化 ---
+    # --- Standard Initialization ---
     v10_cfg = config.get('v10_config', {})
     
     use_pretrain_bool = config.get('DBCD', {}).get('use_pretrain', False)
@@ -1776,7 +1776,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
     aug_transformer = get_supcon_transform(config['dataset']['data_name'])
     clients_sample_per_class = []
     
-    # --- 与V11相同的lambda预热逻辑 ---
+    # --- Same lambda warm-up logic as V11 ---
     logger.info("--- Pre-heating V14 models with V9's adaptive lambda strategy ---")
     for c in range(config['client']['num_clients']):
         client_dataloader = get_client_dataloader(client_idx_map[c], trainset, config['dataset']['train_batch_size'])
@@ -1810,7 +1810,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
             if cr == 0:
                 clients_sample_per_class.append(generate_sample_per_class(config['dataset']['num_classes'], client_dataloader, len(client_idx_map[c])))
 
-            # --- 核心调用改变：激活V12的新逻辑 ---
+            # --- Core call change: Activate new V12 logic ---
             local_model_c = ours_local_training(
                 model=copy.deepcopy(local_models[c]),
                 training_data=client_dataloader,
@@ -1831,7 +1831,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
                 fixed_anchors=etf_anchors,
                 use_uncertainty_weighting=True,
                 sigma_lr=sigma_lr_val,
-                # 新增的开关，用于激活V12的内部退火逻辑
+                # New switch to activate V12 internal annealing logic
                 use_dynamic_task_attenuation=True,
                 gamma_reg = gamma_reg,
                 lambda_max = lambda_max
@@ -1840,32 +1840,32 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
             local_models[c] = local_model_c
             local_protos.append(local_model_c.get_proto().detach())
 
-            # 日志分析
-            # 1. 像以前一样，从返回的模型中获取最终的 sigma 值
+            # Log Analysis
+            # 1. As before, get final sigma values from returned model
             log_sigma_sq_local_val = local_model_c.log_sigma_sq_local.item()
             log_sigma_sq_align_val = local_model_c.log_sigma_sq_align.item()
 
-            # 2. 计算由 sigma 参数学习到的“原始 Lambda”
-            #    这个值在后期会爆炸性增长
+            # 2. Calculate "Raw Lambda" learned by sigma parameters
+            #    This value will grow explosively in later stages
             raw_lambda = math.exp(log_sigma_sq_local_val - log_sigma_sq_align_val)
 
-            # 3. 计算在当前本地训练结束时，“元退火”系数 s(p) 的值
-            #    这需要知道总的训练步数和当前所处的步数
+            # 3. Calculate "Meta-Annealing" factor s(p) at the end of current local training
+            #    This requires knowing total training steps and current step
             total_training_epochs = config['server']['num_rounds'] * config['server']['local_epochs']
             
-            # cr 是从0开始的当前轮次
+            # cr is current round index starting from 0
             end_epoch_of_this_round = (cr + 1) * config['server']['local_epochs']
             
             global_progress = end_epoch_of_this_round / total_training_epochs
             
-            # 假设 s(p) 是线性衰减 s(p) = 1 - p
-            # 使用 max(0.0, ...) 来确保其不会变为负数
+            # Assume s(p) is linear decay s(p) = 1 - p
+            # Use max(0.0, ...) to ensure it doesn't become negative
             s_p_value = max(0.0, 1.0 - global_progress)
 
-            # 4. 计算真正作用于模型权重 W 的“真实生效 Lambda”
+            # 4. Calculate "Truly Effective Lambda" that actually acts on model weights W
             truly_effective_lambda = raw_lambda * s_p_value
 
-            # 5. 打印全新的、信息量巨大的日志
+            # 5. Print brand new, highly informative log
             log_message = (
                 f"Client {c} Post-Training State -> "
                 f"Raw λ: {raw_lambda:9.4f} "
@@ -1877,7 +1877,7 @@ def OneshotOursV14(trainset, test_loader, client_idx_map, config, device, gamma_
 
         logger.info(f"Round {cr} Finish--------|")
         
-        # --- 评估和保存逻辑 ---
+        # --- Evaluation and Save Logic ---
         method_name = 'OursV14+SimpleFeatureServer'
         ensemble_model = WEnsembleFeature(model_list=local_models, weight_list=weights)
         global_proto = aggregate_local_protos(local_protos)
