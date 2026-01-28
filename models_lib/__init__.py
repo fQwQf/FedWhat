@@ -127,7 +127,13 @@ def get_train_models(model_name, num_classes, mode, use_pretrain=False, **kwargs
              model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes)
 
         else:
-            model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes)
+            if model_name == 'vit':
+                # For ViT, we can just use the standard LearnableProtoViT 
+                # or if we really want a projector, we would need to implement LearnableProtoViTWithProjector.
+                # For now, let's map it to LearnableProtoViT as it likely suffices for this rebuttal experiment.
+                model = LearnableProtoViT(num_classes=num_classes)
+            else:
+                model = LearnableProtoResNetWithProjector(model_name, num_classes=num_classes)
         return model
     else:
         if 'mobilenetv2' in model_name:
