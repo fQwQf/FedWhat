@@ -1,6 +1,6 @@
-# FedWhat: Official Implementation for AURORA
+# AURORA
 
-This repository contains the official implementation for the paper: **"AURORA: ..."**.
+This repository contains the official implementation for the paper: **"AURORA: Autonomous Regularization for One-shot Representation Alignment"**.
 
 ## Code Structure
 
