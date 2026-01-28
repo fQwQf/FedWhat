@@ -1,37 +1,39 @@
-# Does one-shot give the best shot? Mitigating Model Inconsistency in One-shot Federated Learning
+# FedWhat: Official Implementation for AURORA
 
-This is official PyTorch implementation of the paper "Does one-shot give the best shot? Mitigating Model Inconsistency in One-shot Federated Learning" (accepted by ICML 2025).
+This repository contains the official implementation for the paper: **"AURORA: ..."**.
 
-#### Dependencies
+## Code Structure
 
-- python 3.8 (Anaconda)
-- Pytorch 1.10.1
-- torchvision 0.11.2
-- CUDA 11.4
+- `configs/`: Configuration files for experiments.
+- `models_lib/`: Model definitions (ResNet, ViT, etc.).
+- `oneshot_algorithms/`: Implementation of AURORA and baseline algorithms.
+- `data/`: Dataset handling scripts.
+- `examples.sh`: Example commands for single-run experiments.
+- `run_gpu_aware_experiments.sh`: Main script for distributed/batch experiments.
 
-#### Dataset
+## Installation
 
-- CIFAR-10
-- CIFAR-100
-- SVHN
-- Tiny-ImageNet
+Please install the required dependencies using the provided environment file:
 
-
-#### Usage
-
-Commands can be found in `run.sh`
-
-All configurations are in the folder of `configs'
-
-
-#### Citation
-
+```bash
+conda env create -f environment.yml
 ```
-@inproceedings{fafi,
-  author = {Hui, Zeng and Wenke, Huang and Tongqing, Zhou and Xinyi, Wu and Guancheng, Wan and Yingwen, Chen and Zhiping, Cai},
-  title = {Does one-shot give the best shot? Mitigating Model Inconsistency in One-shot Federated Learning},
-  year = {2025},
-  booktitle = {Proceedings of International Conference on Machine Learning (ICML)},
-  numpages = {9},
-}
+
+## Usage
+
+```bash
+python test.py --cfp ./configs/CIFAR10.yaml --algo OursV14
 ```
+
+### Arguments
+
+The `test.py` script accepts the following arguments:
+
+| Argument | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `--cfp` | `str` | **Required** | Path to the experiment configuration file (YAML). |
+| `--algo` | `str` | **Required** | Algorithm to run. <br> **Key Options**: `OursV14` (AURORA), `FedAvg`, `FedProto`, `Ours_FeatureCollapse_Ablation`. |
+| `--lambdaval` | `float` | `0` | Alignment loss weight ($\lambda$). |
+| `--annealing_strategy` | `str` | `none` | Strategy for annealing $\lambda$ during training. |
+| `--gamma_reg` | `float` | `1e-5` | Regularization factor ($\gamma$) for the alignment loss weight. |
+| `--lambda_max` | `float` | `50.0` | Maximum threshold for effective $\lambda$ in stability regularization. |

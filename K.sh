@@ -1,9 +1,0 @@
-python test.py --cfp ./configs/K20.yaml --algo OursV4
-python test.py --cfp ./configs/K20.yaml --algo OursV7
-python test.py --cfp ./configs/K20.yaml --algo OursV13
-python test.py --cfp ./configs/K30.yaml --algo OursV4
-python test.py --cfp ./configs/K30.yaml --algo OursV7
-python test.py --cfp ./configs/K30.yaml --algo OursV13
-python test.py --cfp ./configs/K10.yaml --algo OursV4
-python test.py --cfp ./configs/K10.yaml --algo OursV7
-python test.py --cfp ./configs/K10.yaml --algo OursV13
